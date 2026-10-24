@@ -1,0 +1,18 @@
+[
+ {
+  "product": "RowRun",
+  "url": "https://row.run",
+  "one_liner": "An 'AI automation engineer' for sales and ops teams: you describe a recurring routine in plain words, and RowRun builds it, runs it on every row of your data and shows the result before anything changes in your tools.",
+  "icp_summary": "Small and mid-sized B2B companies, often in DACH, whose sales, RevOps, finance or support people spend hours each week copying, enriching, checking and routing rows between their CRM, spreadsheets, inbox and Slack. They buy when a manual weekly routine becomes painful at volume, when a Zapier, Make or n8n flow keeps breaking or no one can maintain it, or when ChatGPT/Claude can't handle a list of more than a few dozen rows reliably.",
+  "match_threshold": 0.5,
+  "w_fit": 0.34,
+  "w_intent": 0.28,
+  "w_icp": 0.22,
+  "w_welcome": 0.16,
+  "disqualified_factor": 0.2,
+  "pitch_top": 30,
+  "judge_model": "sonnet",
+  "pitch_model": "sonnet",
+  "exported_at": "2026-10-24T11:36:59Z"
+ }
+]

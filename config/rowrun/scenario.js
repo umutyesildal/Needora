@@ -1,96 +1,112 @@
-// RowRun scenario, built from the real icp-scout run in data/rowrun/ (see its README).
-// Same rules as config/needora/scenario.js. The differences:
-//   - POSTS are generated from LEADS (data/rowrun/leads.js), not written by hand.
-//   - Authors are anonymised in the data, so posts have no `user` and picks have no `profiles` or `photo`.
-//     Don't invent names or profiles for these posts: they're real people.
-//   - Cards show the judge's category and score as `tags`, because the export has no vote counts.
-//   - Each pick's reply, need and solution are condensed from the reviewed drafts in data/rowrun/leads.json.
+// RowRun scenario, built on the real icp-scout run in data/rowrun/ (see its README).
+// Rules the layout depends on are marked MUST; the page checks them on load and names the first broken one in the bottom bar.
+//
+// The posts are real people's words with the authors removed. Keep it that way: no invented names, photos,
+// companies or linked profiles for these posts. The engine supports an optional `person` on a pick (see
+// README), but only for fictional demo posts, never for real leads.
 
 const COPY = {
-  product: 'Mention Scout',
-  scope: 'Reddit · 15 subreddits · last 30 days',
-  sources: 'Reddit',
-  found: `${LEADS.length} top leads from ${RUN.matched} matches in ${RUN.screened} posts screened`,
-  offerEnds: '7 November 2026',
+  window: 'last 30 days',   // HUD: "Brief: RowRun · last 30 days"
+  note: 'Posts are real RowRun leads with the authors removed, and they stay anonymous. The plan estimates, offers, sample rows and pages are illustrative.',
 };
 
-// PLACEHOLDER pricing: RowRun's real plans and prices weren't in the data. Replace before showing this to anyone.
-const PLANS = [{ name:'Starter', price:49 }, { name:'Team', price:199 }, { name:'Business', price:599 }];
+// RowRun's real plans (row.run/pricing, checked 24 Oct 2026). MUST be exactly 3. price = USD per month.
+const PLANS = [
+  { name:'Starter', price:20 },
+  { name:'Team', price:200 },
+  { name:'Business', price:800 },
+];
 
-const TONES = ['Serious', 'Friendly', 'Funny', 'Urgent'];
+// How each reply could be pitched. MUST be exactly 4.
+const TONES = ['Expert', 'Friendly', 'Playful', 'Urgent'];
 
-// leads.js cuts post text at 260 characters, so mark the cut
-const POSTS = LEADS.map(l => ({
-  id: 'lead' + l.id, kind: 'r', sub: l.sub, time: l.time, title: l.title,
-  text: l.text.length >= 255 ? l.text.trimEnd() + '…' : l.text,
-  tags: [l.cat, `score ${l.score.toFixed(2)}`],
-}));
+const OFFER_HOURS = 48;   // the timed discount is held this long from the first time a page opens
 
+// The mentions on screen: the 30 top leads, as exported (id, sub, time, title, text, cat, score, …).
+const POSTS = LEADS;
+
+// What the brief rail says at each step (index 1–6).
+const NOW = [
+  null,
+  ['Collect', `Needora read ${RUN.screened} public posts from the last 30 days across Reddit, Hacker News, LinkedIn and X. On screen: 30 of the ${RUN.matched} where someone describes a problem RowRun solves.`],
+  ['Match', 'Every post is scored on fit, buying intent, ideal customer and whether a reply is welcome. These three scored highest where a reply is welcome.'],
+  ['Plan', "The authors stay anonymous, so Needora estimates which RowRun plan fits from what each post says: row volume, team, tools and urgency."],
+  ['Tone', 'Reddit punishes vendors who pitch. Needora reads each thread and picks how to answer so the reply gets read, not downvoted.'],
+  ['Reply', 'Each reply answers the question first, says who we are, and links to a page made for that thread.'],
+  ['Page', 'One link, one page, one offer: the routine they described, run on sample rows, with the RowRun plan that fits.'],
+];
+
+// The three best "worth a reply" leads. MUST be exactly 3.
+//   post:      id of a lead in POSTS
+//   name/tab:  how the anonymous author is referred to (status bar / browser tabs)
+//   madeFor:   who the page addresses ("Made for …", "Price held for …")
+//   need:      short label for the match pill
+//   profiles:  [] for anonymous authors (step 3 then skips the profile lookup)
+//   plan:      probs = % per PLANS entry, pick = index into PLANS, conf = %, signals = one line taken from the post
+//   tone:      scores = 0–100 per TONES entry, pick = index into TONES, why = one line
+//   reply:     under ~150 characters, keeps the disclosure; condensed from the reviewed draft in data/rowrun/leads.json
+//   link:      slug (shown in the reply and address bar), title/desc/thumb for the link preview
+//   offer:     ILLUSTRATIVE discount: pct off for `months` months; includes = lines from the real plan
+//   page:      the step 6 page. run = a sample run table: cols, rows (3 are shown), pill = index of the column drawn as a status pill
 const PICKS = [
-  { post:'lead335', name:'r/SalesOps poster', tab:'r/SalesOps', fit:'Score 0.84 · Signal routing', fitShort:'Score 0.84',
-    profiles: [],
-    plan:{ probs:[18, 64, 18], pick:1, conf:72, signals:'Sales ops role · already comparing Onfire, 6sense and Common Room · routes accounts into a CRM' },
-    tone:{ scores:[82, 51, 6, 33], pick:0, why:'Thoughtful question to practitioners, asks for process advice, no jokes in the thread' },
-    reply:"Route on combinations of signals, not single ones, and test the rule on last week's accounts first. Disclosure: I work on RowRun.",
-    link:{ url:'row.run/signal-routing', title:'Route the signals that matter into your CRM', desc:"Team plan · test run on last week's accounts", thumb:'Signals in, routed rows out' },
+  { post:335, name:'r/SalesOps author', tab:'r/SalesOps', madeFor:'the r/SalesOps thread', need:'Signal routing', profiles:[],
+    plan:{ probs:[9, 33, 58], pick:2, conf:64, signals:'Already comparing Onfire, 6sense and Common Room · intent, scoring, tech changes and job posts per account · wants it routed into the CRM' },
+    tone:{ scores:[88, 44, 5, 21], pick:0, why:'Strategy question in r/SalesOps while comparing vendors. Expects substance before any product mention.' },
+    reply:"Work back from closed-won and route on signal combinations, not single signals. Disclosure: I'm on the RowRun team. Your routing rule on sample accounts:",
+    link:{ slug:'row.run/for/signal-routing', title:'Route the signals your reps act on', desc:'Business plan · 25% off, held for 48 hours', thumb:'Signals routed, with a reason' },
+    offer:{ pct:25, months:3, includes:['Up to 1,000,000 rows per run','Onboarding and a direct line to the founder','Unlimited members, builders and guests'] },
     page:{
-      company:'your sales team', madeFor:'the r/SalesOps thread', eyebrow:'For the r/SalesOps thread · signal routing',
-      h1:'Stop letting intent signals sit in dashboards.',
-      sub:"Describe your routing rule in plain words. RowRun checks every new account against it, writes one reason per account, and routes it to the right owner, after you approve.",
-      delta:[['Dashboards','reps never open'], ['1 reason','per routed account']],
-      steps:[
-        ['Describe the rule','For example: new account with an intent spike plus a relevant job post, scored and routed to its owner.'],
-        ['Test on last week',"Every account gets a result with its sources. Nothing is written to the CRM or sent to Slack yet."],
-        ['Approve, then schedule','It runs on a schedule. Change the rule by saying what should differ.'],
-      ],
-      cadence:'per month', deal:"Free test run on last week's accounts. Nothing writes to your CRM until you approve.",
-      includes:['Signals from CSV, Sheets, REST APIs or web search','Deterministic scoring and routing','AI only for judgement calls','HubSpot or Salesforce write-back after approval','Runs on a schedule'],
-      why:"RowRun doesn't supply intent data, so it won't replace Onfire, 6sense or Common Room. It's the routing layer on top: Team covers one CRM and a weekly run on every new account.",
-      chips:['Intent data in place','Comparing Onfire / 6sense','CRM routing','Wants low admin'],
-      cta:"Test on last week's accounts", cta2:'See an example run',
+      eyebrow:'For the r/SalesOps thread · signal routing',
+      h1:'Route the signals your reps will act on.',
+      sub:'Describe the rule once. RowRun checks every account for intent, job posts and tech changes, scores it with your weights, and routes it to the owner in your CRM with one line on why.',
+      routine:'Every Monday, take accounts with a new signal. Check for an intent spike, a relevant job post or a tech change, and score them with our weights. Write one reason per account, route it to the owner in the CRM, and cap it at 25 per rep.',
+      run:{ title:'Route accounts with new signals', total:248, unit:'accounts', pill:3, cols:['Account','Signals','Score','Route to','Reason'],
+        rows:[
+          ['Helio Logistics','Hiring 3 RevOps · intent spike','0.82','Lena · AE','Hiring RevOps and visited pricing twice'],
+          ['Vantor Systems','Moved to HubSpot','0.74','Tim · AE','Switched CRM in September'],
+          ['Nordwerk Software','Job post: Sales Ops','0.66','Lena · AE','New Sales Ops lead, 140 staff'],
+          ['Brightfold','Intent spike only','0.41','Nurture','One signal, below the 0.6 bar'],
+          ['Keller & Sohn','No signal in 90 days','0.12','Drop a tier','Quiet since July'],
+        ] },
     } },
-  { post:'lead383', name:'r/hubspot poster', tab:'r/hubspot', fit:'Score 0.82 · Duplicate contacts', fitShort:'Score 0.82',
-    profiles: [],
-    plan:{ probs:[8, 36, 56], pick:2, conf:68, signals:"Consultant for a client · 500–1,500 new duplicate contacts a day · already evaluating Koalify" },
-    tone:{ scores:[64, 40, 4, 86], pick:3, why:'Volume is out of hand, already shopping for a fix, the client is waiting' },
-    reply:"At 1,500 dupes a day, fix the sources too. Exact-email merges are safe to automate; review the fuzzy ones. Disclosure: I work on RowRun.",
-    link:{ url:'row.run/hubspot-dedupe', title:'Dedupe 1,500 HubSpot contacts a day, with review', desc:"Business plan · dry run on last week's contacts", thumb:'Merges you approve first' },
+  { post:383, name:'r/hubspot author', tab:'r/hubspot', madeFor:'the r/hubspot thread', need:'HubSpot dedupe', profiles:[],
+    plan:{ probs:[21, 64, 15], pick:1, conf:72, signals:"Buying for a client · 500–1,500 new duplicates a day, roughly 45k rows a month · already looking at Koalify" },
+    tone:{ scores:[55, 38, 7, 86], pick:3, why:'"Gotten out of hand": up to 1,500 new duplicates a day, and choosing a tool now.' },
+    reply:"Find where the dupes come from first, and never auto-merge fuzzy matches. Disclosure: I work on RowRun. Your client's dedupe, dry-run on sample contacts:",
+    link:{ slug:'row.run/for/hubspot-dedupe', title:'Stop 1,500 HubSpot duplicates a day', desc:'Team plan · 30% off, held for 48 hours', thumb:'1,500 dupes a day, cleaned' },
+    offer:{ pct:30, months:3, includes:['Up to 250,000 rows per run','Your client joins as a guest, free','Priority email support'] },
     page:{
-      company:"your client's HubSpot", madeFor:'the r/hubspot thread', eyebrow:'For the r/hubspot thread · duplicate contacts',
-      h1:'Clear 1,500 duplicates a day without merging blind.',
-      sub:"Every new contact is matched against existing ones by email, name and company domain. You see each proposed merge with its reason, and nothing merges until someone approves.",
-      delta:[['500–1,500','new dupes a day'], ['0','merged without review']],
-      steps:[
-        ['Connect HubSpot','Read-only to start. RowRun looks at new contacts daily or as they arrive.'],
-        ['Describe the match rule','Exact email merges automatically. Fuzzy name and company matches go to review.'],
-        ['Approve, then schedule','A dry run on last week shows every merge and why. Then it runs daily and flags failed rows.'],
-      ],
-      cadence:'per month', deal:"Dry run on last week's contacts, with every proposed merge and its reason.",
-      includes:['Daily or on-arrival dedupe runs','Deterministic matching on email, name and domain','AI only for ambiguous pairs','Merges only after approval','Retries and flags failed rows'],
-      why:"At this volume the Business plan covers daily runs with review. RowRun won't stop duplicates being created by forms or imports, so fixing those sources is a separate job.",
-      chips:['Consultant','500–1,500 dupes a day','HubSpot','Evaluating Koalify'],
-      cta:'Start the dry run', cta2:'See a sample merge report',
+      eyebrow:'For the r/hubspot thread · duplicate contacts',
+      h1:'Clean 1,500 duplicates a day, without a risky merge.',
+      sub:'RowRun matches each new contact against the portal by email, name and company domain, shows why, and merges only after someone approves. Then it runs every morning.',
+      routine:'Every morning, take new HubSpot contacts. Match each one against existing contacts by email, normalised name and company domain. Propose a merge with the reason and the record that survives. Merge only after I approve, and flag anything ambiguous.',
+      run:{ title:'Dedupe new HubSpot contacts', total:1284, unit:'contacts', pill:4, cols:['New contact','Matches','Reason','Confidence','Action'],
+        rows:[
+          ['joana.silva@acme.example','Joana Silva (2023)','Same email','100%','Merge'],
+          ['J. Silva, Acme','joana.silva@acme.example','Name + company domain','86%','Review'],
+          ['mark+news@brightco.example','mark@brightco.example','Email alias','97%','Merge'],
+          ['info@tiles.example','Luso Tiles (company)','Shared inbox','—','Keep'],
+          ['Ana Costa, Nova','Ana Costa, Nova Ltd','Name + company','71%','Review'],
+        ] },
     } },
-  { post:'lead6', name:'r/salesforce poster', tab:'r/salesforce', fit:'Score 0.78 · Fake inbound leads', fitShort:'Score 0.78',
-    profiles: [],
-    plan:{ probs:[28, 60, 12], pick:1, conf:70, signals:'Runs inbound lead scoring in Salesforce · fakes get past duplicate rules · two months of skewed scores' },
-    tone:{ scores:[57, 79, 18, 41], pick:1, why:'Shared what they figured out, peer-to-peer thread, frustrated but curious' },
-    reply:"Completeness is the easiest thing for a bot to fake; cross-checks catch them. Disclosure: I work on RowRun. Here's a check you could run:",
-    link:{ url:'row.run/fake-lead-check', title:'Catch fake leads before they reach scoring', desc:"Team plan · test on the last few weeks of leads", thumb:'Real leads only' },
+  { post:572, name:'r/CRM author', tab:'r/CRM', madeFor:'the r/CRM thread', need:'Finance admin', profiles:[],
+    plan:{ probs:[72, 23, 5], pick:0, conf:80, signals:'Small renovation company · bank statements, invoices and supplier PDFs in Sheets and Drive · wants rules first, AI only where useful' },
+    tone:{ scores:[43, 84, 14, 18], pick:1, why:'Small business owner with a long, careful post. Values reliability over hype.' },
+    reply:"Sort the work by how rule-based it is: bank lines are rules, only supplier PDFs need AI. Disclosure: I work on RowRun. Your Movimentos routine, mapped out:",
+    link:{ slug:'row.run/for/renovation-admin', title:'Every bank line matched, every week', desc:'Starter plan · 50% off, held for 48 hours', thumb:'Admin rules, run weekly' },
+    offer:{ pct:50, months:3, includes:['Up to 25,000 rows per run','200,000 AI credits a month','Email support'] },
     page:{
-      company:'your inbound funnel', madeFor:'the r/salesforce thread', eyebrow:'For the r/salesforce thread · fake inbound leads',
-      h1:'Catch fake leads before they reach your scoring.',
-      sub:"Each new form lead gets cheap checks first: email, domain, area code, repeat patterns. Suspects get a status, not a delete, so you can see what was flagged and why.",
-      delta:[['2 months','of skewed lead scores'], ['Every lead','checked before scoring']],
-      steps:[
-        ['Point it at new leads','New inbound form leads in Salesforce, checked as they arrive.'],
-        ['Cheap checks first','Email validity, domain age and mail server, name vs email, area code vs location.'],
-        ['Flag, don\'t delete','Suspected fakes get a status after you approve, and stay out of scoring until reviewed.'],
-      ],
-      cadence:'per month', deal:'Test it on the last few weeks of leads before it writes anything to Salesforce.',
-      includes:['Checks on every new lead','Deterministic email, domain and phone checks','Optional web lookup for the hard cases','A verdict per lead with sources','Writes a status only after approval'],
-      why:"Team covers one Salesforce org and every inbound lead. RowRun won't fix the scoring model itself, so you'd still stop rewarding form completeness there.",
-      chips:['Salesforce','Inbound forms','Lead scoring','Fakes pass dupe rules'],
-      cta:'Test on recent leads', cta2:'See the checks',
+      eyebrow:'For the r/CRM thread · renovation admin',
+      h1:'Match every bank line and invoice. Keep AI for the PDFs.',
+      sub:'Describe your rules once. RowRun classifies each bank line with your Configurações table, matches payments to invoices, reads supplier PDFs from Drive and writes to Movimentos after you approve.',
+      routine:'Every Monday, import the XLSX bank statement. Classify each line with the rules in Configurações and match payments to invoices. Read new supplier PDFs from Drive. Write everything to Movimentos after I approve, and flag lines that match no rule.',
+      run:{ title:'Match bank lines to Movimentos', total:312, unit:'lines', pill:4, cols:['Bank line','Amount','Category','Matched to','Status'],
+        rows:[
+          ['14 Oct · TRF Cerâmica Norte','−1,240.00','Materiais','Invoice CN-318','Matched'],
+          ['15 Oct · MB WAY client payment','+3,500.00','Recebimento','Obra Foz · invoice 112','Matched'],
+          ['15 Oct · Hardware store','−86.40','Materiais','Receipt PDF (AI read)','Check'],
+          ['16 Oct · Electricity','−142.10','Utilities','Rule: counterparty','Matched'],
+          ['17 Oct · TRF ref 5531','−910.00','—','No rule matched','Review'],
+        ] },
     } },
 ];

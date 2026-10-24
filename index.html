@@ -4,24 +4,26 @@
 <title>Mention Scout</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- All content lives in config/<demo>/. This file is the engine: edit it only to change how the demo looks or moves. -->
+<!-- All content lives in config/. This file is the engine: edit it only to change how the demo looks or moves. -->
+<script src="config/presenter.js"></script>
 <script src="config/platforms.js"></script>
 <script>
-  // Which demo to show: index.html?demo=rowrun loads config/rowrun/. With no ?demo it shows config/needora/.
-  // brand.js loads first. It can list DATA_FILES (e.g. a lead export) that load before scenario.js.
+  // Which client demo to show: index.html?demo=rowrun loads config/rowrun/. With no ?demo it shows rowrun.
+  // client.js loads first. It can list DATA_FILES (e.g. a lead export) that load before scenario.js.
   // Classic scripts written in order, so this works from file:// as well as from a server.
-  const DEMO = (/^[a-z0-9-]+$/.exec(new URLSearchParams(location.search).get('demo') || '') || ['needora'])[0];
-  document.write(`<script src="config/${DEMO}/brand.js"><\/script>`);
+  const DEMO = (/^[a-z0-9-]+$/.exec(new URLSearchParams(location.search).get('demo') || '') || ['rowrun'])[0];
+  document.write(`<script src="config/${DEMO}/client.js"><\/script>`);
 </script>
 <script>
-  if (typeof BRAND !== 'undefined') {
+  if (typeof CLIENT !== 'undefined') {
     const files = [...(typeof DATA_FILES !== 'undefined' ? DATA_FILES : []), `config/${DEMO}/scenario.js`];
     for (const src of files) document.write(`<script src="${src}"><\/script>`);
   }
 </script>
 <style>
-  /* Layout: full-bleed WebGL stage; slim HUD bar on top, floating control dock at the bottom; step 6 opens a browser window over the stage. Light mode only, by request. */
-  /* Fallback values; the real ones come from THEME in config/brand.js and are applied on load. */
+  /* Layout: presenter shell (config/presenter.js) = intro curtain, HUD, brief rail on the left, WebGL stage, control dock.
+     Step 6 opens a page in the client's look (config/<demo>/client.js) in a browser window. Light mode only, by request.
+     Fallback values below; the real ones are applied from config on load. Classes starting rr- style the client page. */
   :root {
     --bg: #F4F3F2;
     --dot: #DCD8D6;
@@ -33,6 +35,10 @@
     --accent-hover: #5E0B0B;
     --accent-soft: #F6ECEC;
     --f-ui: "Rubik", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --rr-blue: #005FFF;
+    --rr-navy: #13004E;
+    --rr-tint: #EEF4FF;
+    --f-rr: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     color-scheme: light;
   }
   [hidden] { display: none !important; }
@@ -44,6 +50,25 @@
   }
   #stage canvas { display: block; }
 
+  /* ---- intro curtain ---- */
+  .intro {
+    position: fixed; inset: 0; z-index: 9; background: var(--accent); color: #fff;
+    display: grid; place-items: center; padding: 24px max(16px, env(safe-area-inset-left, 0px));
+    transition: transform .7s cubic-bezier(.7,0,.2,1);
+  }
+  .intro.out { transform: translateY(-100%); }
+  .intro-in { display: grid; justify-items: center; gap: 18px; text-align: center; }
+  .intro-in > img { height: clamp(34px, 6vw, 56px); width: auto; }
+  .intro-in p { margin: 0; font-size: clamp(18px, 2.4vw, 26px); font-weight: 400; letter-spacing: -0.01em; max-width: 26ch; text-wrap: balance; }
+  .intro-brief { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 8px 14px 8px 10px; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; font-size: 14px; }
+  .intro-brief span { opacity: .75; text-transform: uppercase; letter-spacing: .1em; font-size: 11px; font-weight: 500; }
+  .intro-brief img { height: 16px; width: auto; }
+  .intro-in > * { animation: introRise .6s cubic-bezier(.2,.8,.2,1) both; }
+  .intro-in > :nth-child(2) { animation-delay: .08s; }
+  .intro-in > :nth-child(3) { animation-delay: .16s; }
+  @keyframes introRise { from { opacity: 0; transform: translateY(12px); } }
+
+  /* ---- HUD ---- */
   .hud {
     position: fixed; top: 0; left: 0; right: 0; z-index: 2;
     padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
@@ -55,7 +80,7 @@
   .brand { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .brand img { height: 22px; width: auto; display: block; }
   .brand b { font-size: 13px; font-weight: 600; padding-left: 12px; border-left: 1px solid var(--line); }
-  .brand span { font: 500 11px var(--f-ui); color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .brand span { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
   .steps { display: flex; gap: 6px; flex-wrap: wrap; }
   .step {
     font: 500 11.5px var(--f-ui); letter-spacing: 0.02em;
@@ -66,6 +91,47 @@
   .step.done { color: var(--ink); }
   .step.on { background: var(--ink); border-color: var(--ink); color: var(--surface); }
 
+  /* ---- brief rail ---- */
+  .brief {
+    position: fixed; z-index: 2; left: max(16px, env(safe-area-inset-left, 0px));
+    top: calc(env(safe-area-inset-top, 0px) + 60px); bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    width: 286px; overflow: auto; display: flex; flex-direction: column; gap: 10px;
+    scrollbar-width: none;
+  }
+  .brief::-webkit-scrollbar { display: none; }
+  .brief section { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .eyebrow { font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
+  .b-client img { height: 20px; width: auto; display: block; margin-bottom: 8px; }
+  .b-client p { margin: 0 0 10px; font-size: 13px; line-height: 1.45; color: #3B3735; }
+  .b-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .b-chips span { font-size: 11.5px; padding: 3px 8px; border-radius: 999px; background: #F3F1F0; color: #3B3735; }
+  .b-now { background: var(--ink) !important; border-color: var(--ink) !important; color: #fff; }
+  .b-now .eyebrow { color: rgba(255,255,255,.6); }
+  .b-now h3 { margin: 0 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .b-now p { margin: 0; font-size: 13px; line-height: 1.5; color: rgba(255,255,255,.82); }
+  .b-now.flash { animation: flash .5s ease; }
+  @keyframes flash { from { background: var(--accent); border-color: var(--accent); } }
+  .funnel { display: grid; gap: 7px; }
+  .frow { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; font-size: 12.5px; opacity: .38; transition: opacity .4s; }
+  .frow.on { opacity: 1; }
+  .frow b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .frow i { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: #F0EDEB; overflow: hidden; }
+  .frow i::after { content: ""; display: block; height: 100%; width: var(--w); background: var(--ink); border-radius: 3px; transition: width .8s cubic-bezier(.2,.8,.2,1); }
+  .frow.red i::after { background: var(--accent); }
+  .frow:not(.on) i::after { width: 0; }
+  .srcs { display: grid; gap: 6px; font-size: 12.5px; }
+  .srcs div { display: grid; grid-template-columns: 84px 1fr 30px; align-items: center; gap: 8px; }
+  .srcs i { height: 6px; border-radius: 3px; background: #F0EDEB; overflow: hidden; }
+  .srcs i::after { content: ""; display: block; height: 100%; width: var(--w); background: #3B3735; border-radius: 3px; }
+  .srcs b { font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .weights { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; margin-bottom: 8px; }
+  .weights i { display: block; }
+  .wlegend { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 12px; color: #3B3735; }
+  .wlegend span { display: flex; align-items: center; gap: 6px; }
+  .wlegend span::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+  .b-note { font-size: 11.5px; line-height: 1.45; color: var(--muted); margin: 0; padding: 0 4px; }
+
+  /* ---- dock ---- */
   .dock {
     position: fixed; left: 50%; transform: translateX(-50%); z-index: 5;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
@@ -73,7 +139,7 @@
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
     padding: 6px 6px 6px 14px;
     background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
-    box-shadow: 0 10px 30px -12px rgba(18,22,29,0.22), 0 1px 2px rgba(18,22,29,0.06);
+    box-shadow: 0 10px 30px -12px rgba(0,0,0,0.22), 0 1px 2px rgba(0,0,0,0.06);
   }
   .status { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--muted); min-width: 0; margin-right: 6px; }
   .status i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
@@ -94,7 +160,7 @@
   button:disabled { opacity: 0.45; cursor: default; transform: none; }
   button svg { width: 15px; height: 15px; }
 
-  /* ---- step 6: browser window with the tailored page ---- */
+  /* ---- step 6: browser window ---- */
   .scrim { position: fixed; inset: 0; z-index: 3; background: rgba(240,237,235,0.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; transition: opacity .4s; }
   .browser {
     position: fixed; z-index: 4;
@@ -103,7 +169,7 @@
     left: 50%; width: min(1080px, calc(100% - 32px)); margin-left: max(-540px, calc(-50% + 16px));
     display: flex; flex-direction: column; overflow: hidden;
     background: #fff; border: 1px solid var(--line); border-radius: 14px;
-    box-shadow: 0 40px 80px -30px rgba(18,22,29,0.35), 0 2px 6px rgba(18,22,29,0.06);
+    box-shadow: 0 40px 80px -30px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.06);
     transform-origin: 0 0;
   }
   .bar { display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 14px; background: #F5F3F2; border-bottom: 1px solid var(--line); }
@@ -112,94 +178,118 @@
   .bar .url {
     flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px;
     background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
-    font: 500 12.5px var(--f-ui); color: var(--muted);
+    font-size: 12.5px; color: var(--muted);
   }
   .bar .url span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bar .url b { color: var(--ink); font-weight: 500; }
   .bar .url svg { width: 12px; height: 12px; flex: none; }
   .tabs { display: flex; gap: 4px; flex: none; }
   .tabs button { padding: 3px 10px 3px 3px; gap: 6px; font-size: 12.5px; border-radius: 999px; background: transparent; border-color: transparent; color: var(--muted); }
-  .tabs button img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
   .tabs button[aria-pressed="true"] { background: #fff; border-color: var(--line); color: var(--ink); }
   .bar .close { padding: 6px; border-radius: 8px; background: transparent; border-color: transparent; }
   .bar .close svg { width: 16px; height: 16px; }
-  .page { flex: 1; overflow: auto; background: #FBFAF9; }
+  .page { flex: 1; overflow: auto; background: #FAFAFA; }
+  .ph { display: inline-block; overflow: hidden; border-radius: 50%; flex: none; }
+  .ph img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
-  .lp { --b: var(--accent); --b-soft: var(--accent-soft); --ink2: #4A4543; color: var(--ink); opacity: 0; }
-  .lp.go { opacity: 1; }
-  .lp.go > * { animation: rise .55s cubic-bezier(.2,.8,.2,1) both; }
-  .lp.go > :nth-child(2) { animation-delay: .06s; }
-  .lp.go > :nth-child(3) { animation-delay: .14s; }
-  .lp.go > :nth-child(4) { animation-delay: .22s; }
-  .lp.go > :nth-child(5) { animation-delay: .3s; }
+  /* ---- client page (the client's look: --rr-blue/navy/tint and --f-rr come from config/<demo>/client.js): pitch on the left, offer on the right, proof below ---- */
+  .rr { --ink2: #52525B; --sub: #71717A; --hair: #E7E7EA; --tint: var(--rr-tint); font-family: var(--f-rr); color: #18181B; opacity: 0; }
+  .rr.go { opacity: 1; }
+  .rr.go > * { animation: rise .55s cubic-bezier(.2,.8,.2,1) both; }
+  .rr.go > :nth-child(2) { animation-delay: .06s; }
+  .rr.go > :nth-child(3) { animation-delay: .16s; }
+  .rr.go > :nth-child(4) { animation-delay: .24s; }
   @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
-  .lp-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 32px; background: #fff; border-bottom: 1px solid #ECEEF3; flex-wrap: wrap; }
-  .logo img { height: 24px; width: auto; display: block; }
-  .made { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); background: #F5F3F2; padding: 4px 12px 4px 4px; border-radius: 999px; }
-  .made img, .said img { border-radius: 50%; object-fit: cover; }
-  .made img { width: 26px; height: 26px; }
-  .made b { color: var(--ink); font-weight: 600; }
-  .hero { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; padding: 52px 32px 36px; align-items: center; }
-  .eyebrow { font: 500 12px var(--f-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--b); }
-  .hero h1 { font-size: clamp(30px, 4.2vw, 50px); line-height: 1.04; letter-spacing: -0.025em; font-weight: 700; margin: 14px 0 16px; text-wrap: balance; }
-  .hero .sub { font-size: 17px; line-height: 1.55; color: var(--ink2); max-width: 52ch; margin: 0; }
-  .ctas { display: flex; gap: 10px; margin-top: 26px; flex-wrap: wrap; }
-  .btn { display: inline-flex; align-items: center; padding: 12px 18px; border-radius: 10px; font-weight: 600; font-size: 15px; border: 1px solid var(--line); background: #fff; color: var(--ink); }
-  .btn.p { background: var(--b); border-color: var(--b); color: #fff; }
-  .said { background: #fff; border: 1px solid #E4E7ED; border-radius: 16px; padding: 18px; box-shadow: 0 18px 40px -24px rgba(18,22,29,0.25); }
-  .said .who { display: flex; align-items: center; gap: 10px; }
-  .said .who img { width: 40px; height: 40px; }
-  .said .who span { font-size: 13px; color: var(--muted); }
-  .said .who b { display: block; color: var(--ink); font-size: 14.5px; }
-  .said .src { margin-left: auto; font: 500 10.5px var(--f-ui); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-  .said p { font-size: 15px; line-height: 1.5; margin: 12px 0 0; }
-  .delta { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px dashed #E1E5EC; }
-  .delta div b { display: block; font-size: 26px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .delta div span { font-size: 12.5px; color: var(--muted); }
-  .delta .before b { color: #9AA3B2; text-decoration: line-through; text-decoration-thickness: 2px; }
-  .delta .after b { color: var(--b); }
-  .delta svg { width: 22px; height: 22px; color: #9AA3B2; margin-bottom: 18px; }
-  .how { padding: 12px 32px 36px; }
-  .how h2, .offer h2 { font-size: 22px; letter-spacing: -0.02em; margin: 0 0 16px; }
-  .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  .how-grid div { background: #fff; border: 1px solid #E8EBF0; border-radius: 14px; padding: 18px; }
-  .how-grid em { font: 500 11px var(--f-ui); font-style: normal; color: var(--b); }
-  .how-grid b { display: block; font-size: 16px; margin: 8px 0 6px; }
-  .how-grid p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink2); }
-  .offer { padding: 8px 32px 40px; }
-  .offer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
-  .plan { background: #fff; border: 2px solid var(--b); border-radius: 18px; padding: 24px; position: relative; }
-  .plan .tag { position: absolute; top: -12px; left: 20px; background: var(--b); color: #fff; font: 600 10.5px var(--f-ui); padding: 4px 10px; border-radius: 999px; letter-spacing: .08em; }
-  .plan h3 { margin: 4px 0 0; font-size: 15px; color: var(--muted); font-weight: 600; }
-  .price { display: flex; align-items: baseline; gap: 6px; margin: 6px 0 14px; }
-  .price b { font-size: 44px; letter-spacing: -0.03em; }
-  .price span { color: var(--muted); font-size: 14px; }
-  .deal { background: var(--b-soft); color: var(--b); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-weight: 600; line-height: 1.4; }
-  .plan ul { list-style: none; padding: 0; margin: 16px 0 20px; display: grid; gap: 9px; }
-  .plan li { display: flex; gap: 9px; font-size: 14.5px; align-items: flex-start; }
-  .plan li::before { content: ""; flex: none; width: 16px; height: 16px; margin-top: 2px; border-radius: 50%; background: var(--b-soft) var(--check) center/16px no-repeat; }
-  .plan .btn { width: 100%; justify-content: center; }
-  .why h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -0.01em; }
-  .why p { font-size: 15px; line-height: 1.6; color: var(--ink2); margin: 0 0 14px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chips span { font-size: 12.5px; padding: 5px 10px; border-radius: 999px; background: #F3F1F0; color: var(--ink2); }
-  .lp-foot { padding: 18px 32px 28px; border-top: 1px solid #ECEEF3; font-size: 12.5px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .rr-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 32px; background: #fff; border-bottom: 1px solid var(--hair); flex-wrap: wrap; }
+  .rr-nav > img { height: 22px; width: auto; display: block; }
+  .made { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sub); background: #F4F4F5; padding: 4px 12px 4px 4px; border-radius: 999px; }
+  .made b { color: #18181B; font-weight: 600; }
+  .rbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 18px; border-radius: 10px; font-weight: 600; font-size: 15px; border: 1px solid var(--hair); background: #fff; color: #18181B; }
+  .rbtn.p { background: var(--rr-blue); border-color: var(--rr-blue); color: #fff; }
+  .rr-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: 40px; padding: 44px 32px 28px; align-items: center; }
+  .rr-eyebrow { color: var(--rr-blue); font-weight: 600; font-size: 15px; }
+  .rr-hero h1 { font-size: clamp(30px, 4.2vw, 50px); line-height: 1.04; letter-spacing: -0.035em; font-weight: 700; margin: 12px 0 16px; text-wrap: balance; color: #111; }
+  .rr-hero .sub { font-size: 17.5px; line-height: 1.55; color: var(--sub); max-width: 46ch; margin: 0; }
+  .asked { display: flex; gap: 10px; align-items: center; margin-top: 22px; font-size: 13.5px; line-height: 1.45; color: var(--sub); max-width: 52ch; }
+  .asked q { color: #18181B; font-weight: 500; }
+  .offer { background: #fff; border: 2px solid var(--rr-blue); border-radius: 18px; padding: 22px; position: relative; box-shadow: 0 24px 50px -30px color-mix(in srgb, var(--rr-blue) 45%, transparent); }
+  .offer .tag { position: absolute; top: -12px; left: 20px; background: var(--rr-blue); color: #fff; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px; letter-spacing: .04em; }
+  .oc-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .oc-top h3 { margin: 4px 0 0; font-size: 15px; color: var(--sub); font-weight: 600; }
+  .off { background: var(--rr-navy); color: #fff; font-weight: 700; font-size: 13px; padding: 4px 9px; border-radius: 8px; }
+  .price { display: flex; align-items: baseline; gap: 10px; margin: 6px 0 2px; flex-wrap: wrap; }
+  .price s { color: #A1A1AA; font-size: 22px; font-weight: 600; text-decoration-thickness: 2px; }
+  .price b { font-size: 46px; letter-spacing: -0.035em; color: var(--rr-navy); }
+  .price span { color: var(--sub); font-size: 14px; }
+  .then { font-size: 13px; color: var(--sub); margin-bottom: 14px; }
+  .timer { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--rr-navy); color: #fff; border-radius: 12px; padding: 12px 14px; }
+  .timer small { font-size: 12.5px; line-height: 1.35; color: rgba(255,255,255,.8); }
+  .clock { display: flex; gap: 6px; }
+  .clock span { display: grid; justify-items: center; min-width: 46px; padding: 6px 4px 5px; background: rgba(255,255,255,.12); border-radius: 8px; }
+  .clock b { font-size: 19px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .clock i { font-style: normal; font-size: 10px; margin-top: 3px; color: rgba(255,255,255,.7); }
+  .offer ul { list-style: none; padding: 0; margin: 14px 0 16px; display: grid; gap: 8px; }
+  .offer li { display: flex; gap: 9px; font-size: 14.5px; align-items: flex-start; }
+  .offer li::before { content: ""; flex: none; width: 16px; height: 16px; margin-top: 2px; border-radius: 50%; background: var(--tint) var(--check) center/16px no-repeat; }
+  .offer .rbtn { box-sizing: border-box; width: 100%; padding: 13px 18px; font-size: 16px; }
+  .rr-sec { padding: 8px 32px 28px; }
+  .rr-sec h2 { font-size: 20px; letter-spacing: -0.025em; margin: 0 0 12px; }
+  .prompt { background: #fff; border: 1px solid var(--hair); border-radius: 16px; padding: 16px 18px; }
+  .prompt small { display: block; font-size: 12.5px; color: var(--sub); margin-bottom: 8px; }
+  .prompt p { margin: 0; font-size: 16.5px; line-height: 1.55; color: #18181B; }
+  .prompt p::after { content: ""; display: inline-block; width: 2px; height: 1.1em; background: var(--rr-blue); vertical-align: -0.18em; margin-left: 2px; animation: caret 1s steps(1) infinite; }
+  @keyframes caret { 50% { opacity: 0; } }
+  .run { background: #fff; border: 1px solid var(--hair); border-radius: 16px; overflow: hidden; margin-top: 12px; }
+  .run-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px 10px; flex-wrap: wrap; }
+  .run-head i { width: 9px; height: 9px; border-radius: 50%; background: var(--rr-blue); }
+  .run-head b { font-size: 15px; }
+  .run-head span { margin-left: auto; color: var(--sub); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  .run-head em { font-style: normal; font-size: 11px; font-weight: 600; color: var(--sub); background: #F4F4F5; border-radius: 6px; padding: 2px 7px; }
+  .progress { height: 6px; margin: 0 18px 12px; border-radius: 3px; background: #EDEDF0; overflow: hidden; }
+  .progress i { display: block; height: 100%; width: 0; background: var(--rr-blue); border-radius: 3px; }
+  .rr.go .progress i { animation: fill 1.6s cubic-bezier(.2,.8,.2,1) .5s forwards; }
+  @keyframes fill { to { width: var(--w); } }
+  .table { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 620px; }
+  th { text-align: left; font-weight: 500; color: var(--sub); font-size: 12px; padding: 8px 18px; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); background: #FAFAFA; }
+  td { padding: 10px 18px; border-bottom: 1px solid #F1F1F3; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  .rr.go tbody tr { animation: rise .4s cubic-bezier(.2,.8,.2,1) both; }
+  .rr.go tbody tr:nth-child(1) { animation-delay: .7s; }
+  .rr.go tbody tr:nth-child(2) { animation-delay: .85s; }
+  .rr.go tbody tr:nth-child(3) { animation-delay: 1s; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .pill.ok { background: var(--tint); color: var(--rr-blue); }
+  .pill.warn { background: #FEF3C7; color: #92400E; }
+  .pill.mute { background: #F4F4F5; color: var(--sub); }
+  .rr-foot { padding: 16px 32px 24px; border-top: 1px solid var(--hair); font-size: 12.5px; color: var(--sub); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .found { display: inline-flex; align-items: center; gap: 7px; font-family: var(--f-ui); color: #3B3735; }
+  .found img { height: 12px; width: auto; }
 
+  @media (max-width: 1099px), (max-height: 620px) { .brief { display: none; } }
   @media (max-width: 760px) {
-    .hero, .offer-grid, .how-grid { grid-template-columns: 1fr; }
-    .hero { padding: 32px 20px 24px; gap: 24px; }
-    .lp-nav, .how, .offer, .lp-foot { padding-left: 20px; padding-right: 20px; }
+    .rr-hero { grid-template-columns: 1fr; }
+    .rr-hero { padding: 32px 20px 24px; gap: 24px; }
+    .rr-nav, .rr-sec, .rr-foot { padding-left: 20px; padding-right: 20px; }
     .tabs button span { display: none; }
     .tabs button { padding: 3px; }
   }
   @media (max-width: 640px) { .brand span { display: none; } .status { flex-basis: 100%; justify-content: center; margin: 2px 0 0; } .dock { padding: 6px; } .step { padding: 5px 8px; } .bar .dots { display: none; } }
-  @media (prefers-reduced-motion: reduce) { .lp.go > * { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .rr.go > *, .rr.go tbody tr, .intro-in > * { animation: none; } .rr.go .progress i { width: var(--w); animation: none; } }
 </style>
 
 <div id="stage"></div>
 
+<div class="intro" id="intro" aria-hidden="true">
+  <div class="intro-in">
+    <img id="introLogo" alt="">
+    <p id="introTagline"></p>
+    <div class="intro-brief"><span>Today's brief</span><img id="introMark" alt=""><b id="introClient" style="font-weight:400"></b></div>
+  </div>
+</div>
+
 <header class="hud">
-  <div class="brand"><img id="hudLogo" alt=""><b id="hudProduct"></b><span id="hudScope"></span></div>
+  <div class="brand"><img id="hudLogo" alt=""><b>Mention Scout</b><span id="hudScope"></span></div>
   <div class="steps" aria-label="Progress">
     <div class="step" id="s1">1 Collect</div>
     <div class="step" id="s2">2 Match</div>
@@ -210,8 +300,36 @@
   </div>
 </header>
 
+<aside class="brief" id="brief" aria-label="Brief">
+  <section class="b-client">
+    <div class="eyebrow">Scouting for</div>
+    <img id="briefLogo" alt="">
+    <p id="briefAbout"></p>
+    <div class="b-chips" id="briefChips"></div>
+  </section>
+  <section class="b-now" id="now">
+    <div class="eyebrow"><span id="nowNum">Step 1 of 6</span></div>
+    <h3 id="nowTitle">Collect</h3>
+    <p id="nowText"></p>
+  </section>
+  <section>
+    <div class="eyebrow"><span>Funnel</span><span id="runDate"></span></div>
+    <div class="funnel" id="funnel"></div>
+  </section>
+  <section>
+    <div class="eyebrow">Where the posts came from</div>
+    <div class="srcs" id="srcs"></div>
+  </section>
+  <section>
+    <div class="eyebrow">How a post is scored</div>
+    <div class="weights" id="weights"></div>
+    <div class="wlegend" id="wlegend"></div>
+  </section>
+  <p class="b-note" id="briefNote"></p>
+</aside>
+
 <div class="scrim" id="scrim" hidden></div>
-<section class="browser" id="browser" hidden aria-label="Tailored landing page">
+<section class="browser" id="browser" hidden aria-label="Page made for this person">
   <div class="bar">
     <span class="dots"><i></i><i></i><i></i></span>
     <div class="url">
@@ -242,57 +360,67 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 /* ---------- config ---------- */
-// BRAND, THEME, COPY, PLANS, TONES, POSTS and PICKS come from config/<demo>/, PLATFORMS from config/platforms.js.
-if (typeof BRAND === 'undefined' || typeof PICKS === 'undefined') {
-  document.getElementById('status').textContent = `Config: no demo "${DEMO}". Expected config/${DEMO}/brand.js and scenario.js`;
+// PRESENTER, THEME (config/presenter.js), PLATFORMS (config/platforms.js), CLIENT (config/<demo>/client.js),
+// COPY, PLANS, TONES, OFFER_HOURS, POSTS, NOW and PICKS (config/<demo>/scenario.js), RUN (the demo's data file).
+if (typeof CLIENT === 'undefined' || typeof PICKS === 'undefined') {
+  document.getElementById('status').textContent = `Config: no demo "${DEMO}". Expected config/${DEMO}/client.js and scenario.js`;
   throw new Error(`Mention Scout: missing config/${DEMO}/`);
 }
-const OFFER_ENDS = COPY.offerEnds;
 
 // Check the rules the layout depends on. Returns the first problem as a sentence, or null.
 function configError() {
-  if (PLANS.length !== 3) return `PLANS needs exactly 3 entries, found ${PLANS.length} (config/scenario.js)`;
-  if (TONES.length !== 4) return `TONES needs exactly 4 entries, found ${TONES.length} (config/scenario.js)`;
-  if (PICKS.length !== 3) return `PICKS needs exactly 3 entries, found ${PICKS.length} (config/scenario.js)`;
+  if (typeof RUN === 'undefined') return 'RUN is missing: the demo data file must define RUN (screened, matched, reply, sources, weights, exported)';
+  if (PLANS.length !== 3) return `PLANS needs exactly 3 entries, found ${PLANS.length}`;
+  if (TONES.length !== 4) return `TONES needs exactly 4 entries, found ${TONES.length}`;
+  if (PICKS.length !== 3) return `PICKS needs exactly 3 entries, found ${PICKS.length}`;
+  if (NOW.length !== 7) return 'NOW needs an entry for each of the 6 steps (index 1–6, with null at 0)';
   for (const P of PICKS) {
-    const i = POSTS.findIndex(p => p.id === P.post);
-    if (i < 0) return `PICK "${P.name}" points at post id "${P.post}", which no post in POSTS has`;
-    P.idx = i;
+    P.idx = POSTS.findIndex(p => p.id === P.post);
+    if (P.idx < 0) return `PICK "${P.name}" points at post ${JSON.stringify(P.post)}, which no post in POSTS has`;
     if (!Array.isArray(P.profiles)) return `PICK "${P.name}" needs profiles: [] (an empty list is fine)`;
     const bad = P.profiles.find(([pl]) => !PLATFORMS[pl]);
     if (bad) return `PICK "${P.name}" uses platform "${bad[0]}", which config/platforms.js does not define`;
     if (P.profiles.length > 6) return `PICK "${P.name}" has ${P.profiles.length} profiles, the most is 6`;
     if (P.plan.probs.length !== PLANS.length || !PLANS[P.plan.pick]) return `PICK "${P.name}": plan.probs needs one value per plan and plan.pick a valid index`;
     if (P.tone.scores.length !== TONES.length || !TONES[P.tone.pick]) return `PICK "${P.name}": tone.scores needs one value per tone and tone.pick a valid index`;
-    if (P.page.steps.length !== 3) return `PICK "${P.name}": page.steps needs exactly 3 rows`;
+    if (!P.page.run || P.page.run.rows.length < 3) return `PICK "${P.name}": page.run needs at least 3 sample rows`;
   }
-  for (const p of POSTS) if (p.kind !== 'x' && p.kind !== 'r') return `Post ${JSON.stringify(p).slice(0, 60)}… has kind "${p.kind}", use 'x' or 'r'`;
   return null;
 }
 
-// hex colour + alpha -> rgba(), for glows and tints derived from the accent
+// hex colour + alpha -> rgba(), for glows and tints derived from a brand colour
 function alpha(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`;
 }
 
-function applyTheme() {
+function applyConfig() {
   const css = document.documentElement.style;
   const vars = { bg: THEME.bg, dot: THEME.dot, ink: THEME.ink, muted: THEME.muted, line: THEME.line, surface: THEME.surface,
-    accent: THEME.accent, 'accent-hover': THEME.accentHover, 'accent-soft': THEME.accentSoft };
+    accent: THEME.accent, 'accent-hover': THEME.accentHover, 'accent-soft': THEME.accentSoft,
+    'rr-blue': CLIENT.color, 'rr-navy': CLIENT.deep, 'rr-tint': CLIENT.soft };
   for (const k in vars) css.setProperty('--' + k, vars[k]);
   css.setProperty('--f-ui', `"${THEME.font}", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`);
-  const tick = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='${THEME.accent}' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>`;
+  css.setProperty('--f-rr', `"${CLIENT.font}", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`);
+  const tick = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='${CLIENT.color}' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>`;
   css.setProperty('--check', `url("data:image/svg+xml,${encodeURIComponent(tick)}")`);
-  const font = document.createElement('link'); font.rel = 'stylesheet'; font.href = THEME.fontUrl;
-  document.head.appendChild(font);
-  document.title = `${BRAND.name} ${COPY.product}`;
-  document.getElementById('hudLogo').src = BRAND.lockup;
-  document.getElementById('hudLogo').alt = BRAND.name;
-  document.getElementById('hudProduct').textContent = COPY.product;
-  document.getElementById('hudScope').textContent = COPY.scope;
+  for (const href of new Set([THEME.fontUrl, CLIENT.fontUrl])) {
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l);
+  }
+  document.title = `${PRESENTER.name} Mention Scout · ${CLIENT.name}`;
+  const set = (id, k, v) => { document.getElementById(id)[k] = v; };
+  set('introLogo', 'src', PRESENTER.lockupWhite); set('introLogo', 'alt', PRESENTER.name);
+  set('introTagline', 'textContent', PRESENTER.tagline);
+  set('introMark', 'src', CLIENT.markWhite); set('introClient', 'textContent', CLIENT.name);
+  set('hudLogo', 'src', PRESENTER.lockupBlack); set('hudLogo', 'alt', PRESENTER.name);
+  set('hudScope', 'textContent', `Brief: ${CLIENT.name} · ${COPY.window}`);
+  set('briefLogo', 'src', CLIENT.logo); set('briefLogo', 'alt', CLIENT.name);
+  set('briefAbout', 'textContent', CLIENT.about);
+  document.getElementById('briefChips').innerHTML = CLIENT.chips.map(c => `<span>${esc(c)}</span>`).join('');
+  set('briefNote', 'textContent', COPY.note);
 }
-applyTheme();
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+applyConfig();
 
 /* ---------- constants ---------- */
 const INK = THEME.ink, MUTED = THEME.muted, ACCENT = THEME.accent, BLACK = THEME.ink, TRACK = '#EFECEA', OFF = '#C9C3C0';
@@ -320,39 +448,25 @@ const REPLY_Y = CARD_BOTTOM - 0.3 - RH * U / 2;
 const COL_GAP = 0.8, COL_STEP_V = 5.6;
 const COL_CENTER_Y = 0.12, COL_H = 5.3;
 
-/* ---------- photos ---------- */
+/* ---------- images ---------- */
 // Casual-looking crops and colour grades so the faces read like phone photos, not studio headshots.
-const PHOTOS = {};
+const PHOTOS = {}, IMG = {};
 const GRADES = ['saturate(1.25) contrast(1.05)', 'sepia(0.28) saturate(1.2) brightness(1.04)', 'brightness(1.1) saturate(0.8) contrast(0.95)',
   'contrast(1.12) saturate(1.35) hue-rotate(-8deg)', 'grayscale(1) contrast(1.12)', 'saturate(1.1) brightness(0.96) hue-rotate(6deg)'];
 // photo ids like 'f14' resolve to assets/faces/f14.jpg; anything with a dot or slash is used as a path/URL as-is
 const photoSrc = id => /[./]/.test(id) ? id : `assets/faces/${id}.jpg`;
+const hueOf = s => { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
 function look(id) {
   const n = /^f\d+$/.test(id) ? parseInt(id.slice(1), 10) : hueOf(id);
   return { z: 1.18 + ((n * 37) % 30) / 100, ox: (((n * 13) % 7) - 3) / 100, oy: (((n * 7) % 5) - 2) / 100 + 0.03, f: GRADES[n % GRADES.length] };
 }
-function loadPhotos() {
-  const ids = new Set([...POSTS.map(p => p.photo), ...PICKS.map(p => p.photo), ...PICKS.flatMap(p => p.profiles.map(pr => pr[3]))].filter(Boolean));
-  return Promise.all([...ids].map(id => new Promise(res => {
-    const im = new Image();
-    im.onload = () => { PHOTOS[id] = im; res(); };
-    im.onerror = res;
-    im.src = photoSrc(id);
-  })));
-}
-const BRAND_IMG = {};
-function loadBrand() {
-  return new Promise(res => {
-    const im = new Image();
-    im.onload = () => { BRAND_IMG.mark = im; res(); };
-    im.onerror = res;
-    im.src = BRAND.mark;
-  });
-}
-// red disc with the white Needora mark, used wherever we post as the brand
-function brandAvatar(g, x, y, r) {
-  g.fillStyle = ACCENT; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
-  if (BRAND_IMG.mark) { const w = r * 1.3, h = w * BRAND_IMG.mark.naturalHeight / BRAND_IMG.mark.naturalWidth; g.drawImage(BRAND_IMG.mark, x - w / 2, y - h / 2, w, h); }
+const loadImg = src => new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+async function loadImages() {
+  const ids = new Set([...PICKS.map(p => p.person && p.person.photo), ...PICKS.flatMap(p => p.profiles.map(pr => pr[3]))].filter(Boolean));
+  await Promise.all([
+    ...[...ids].map(async id => { PHOTOS[id] = await loadImg(photoSrc(id)); }),
+    ...[['rr', CLIENT.mark], ['rrWhite', CLIENT.markWhite]].map(async ([k, src]) => { IMG[k] = await loadImg(src); }),
+  ]);
 }
 function photoCircle(g, id, x, y, r) {
   const im = id && PHOTOS[id];
@@ -366,6 +480,7 @@ function photoCircle(g, id, x, y, r) {
   return true;
 }
 const photoStyle = id => { const L = look(id); return `filter:${L.f};transform:scale(${L.z}) translate(${-L.ox * 100}%, ${-L.oy * 100}%)`; };
+const ph = (id, size) => id ? `<span class="ph" style="width:${size}px;height:${size}px"><img src="${photoSrc(id)}" alt="" style="${photoStyle(id)}"></span>` : '';
 
 /* ---------- canvas drawing ---------- */
 function makeCanvas(w, h) {
@@ -401,75 +516,52 @@ function fit(g, text, maxW) {
   while (text && g.measureText(text + '…').width > maxW) text = text.slice(0, -1);
   return text + '…';
 }
-function hueOf(s) { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; }
-function avatar(g, x, y, r, name, photo) {
-  if (photoCircle(g, photo, x, y, r)) return;
-  const h = hueOf(name);
-  g.fillStyle = `hsl(${h} 60% 89%)`; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
-  g.fillStyle = `hsl(${h} 45% 30%)`; g.font = `600 ${r * 0.78}px ${FONT}`;
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(), x, y + 1);
-  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-}
 function surface(g, w, h, r, border = '#E7E3E1', blur = 18) {
   g.save();
-  g.shadowColor = 'rgba(22,32,58,0.13)'; g.shadowBlur = blur; g.shadowOffsetY = blur / 3;
+  g.shadowColor = 'rgba(30,20,18,0.13)'; g.shadowBlur = blur; g.shadowOffsetY = blur / 3;
   g.fillStyle = '#fff'; g.beginPath(); g.roundRect(0, 0, w, h, r); g.fill();
   g.restore();
   g.strokeStyle = border; g.lineWidth = 1; g.beginPath(); g.roundRect(0.5, 0.5, w - 1, h - 1, r); g.stroke();
 }
 function label(g, text, x, y, color = MUTED) {
-  g.fillStyle = color; g.font = `500 10.5px ${FONT}`; g.fillText(text, x, y);
+  g.fillStyle = color; g.font = `500 10.5px ${FONT}`;
+  if ('letterSpacing' in g) g.letterSpacing = '1px';
+  g.fillText(text, x, y);
+  if ('letterSpacing' in g) g.letterSpacing = '0px';
 }
+function chip(g, text, x, y, bg, fg) {
+  g.font = `600 12px ${FONT}`;
+  const w = g.measureText(text).width + 20;
+  g.fillStyle = bg; g.beginPath(); g.roundRect(x, y, w, 26, 13); g.fill();
+  g.fillStyle = fg; g.fillText(text, x + 10, y + 17.5);
+  return w;
+}
+const CAT_STYLE = { 'Buying intent': [THEME.accentSoft, ACCENT], 'Pain point': [INK, '#fff'] };
 
-function drawCard(p) {
+// A Reddit lead. `who` (PICKS[].person) is only set for fictional demo posts; real leads stay anonymous.
+function drawCard(p, who) {
   const [c, g] = makeCanvas(CW + CM * 2, CH + CM * 2);
   g.translate(CM, CM);
   surface(g, CW, CH, 16);
-  if (p.kind === 'x') {
-    avatar(g, 42, 42, 21, p.name, p.photo);
-    g.fillStyle = INK; g.font = `600 16px ${FONT}`; g.fillText(p.name, 72, 38);
-    g.fillStyle = MUTED; g.font = `400 14px ${FONT}`; g.fillText(`@${p.handle} · ${p.time}`, 72, 57);
-    g.fillStyle = '#0F1419'; g.beginPath(); g.roundRect(374, 22, 26, 26, 7); g.fill();
-    g.fillStyle = '#fff'; g.font = `700 15px ${FONT}`; g.textAlign = 'center'; g.fillText('X', 387, 40); g.textAlign = 'left';
-    g.fillStyle = INK; g.font = `400 16.5px ${FONT}`;
-    wrap(g, p.text, 22, 96, 378, 23.5, 5);
-    g.font = `500 13px ${FONT}`;
-    let x = 22;
-    for (const [n, l] of [[p.replies, 'replies'], [p.reposts, 'reposts'], [p.likes, 'likes']]) {
-      g.fillStyle = INK; g.fillText(String(n), x, 238); x += g.measureText(String(n)).width + 4;
-      g.fillStyle = MUTED; g.fillText(l, x, 238); x += g.measureText(l).width + 18;
-    }
+  if (who) {
+    photoCircle(g, who.photo, 42, 42, 21);
+    g.fillStyle = INK; g.font = `600 16px ${FONT}`; g.fillText(who.name, 72, 38);
+    g.fillStyle = MUTED; g.font = `400 13px ${FONT}`; g.fillText(fit(g, `u/${who.handle} · ${who.role}`, 270), 72, 57);
   } else {
     g.fillStyle = '#FF4500'; g.beginPath(); g.arc(36, 36, 15, 0, TAU); g.fill();
     g.fillStyle = '#fff'; g.font = `700 12px ${FONT}`; g.textAlign = 'center'; g.fillText('r/', 36, 40); g.textAlign = 'left';
     g.fillStyle = INK; g.font = `700 13.5px ${FONT}`; g.fillText('r/' + p.sub, 60, 32);
-    g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText(p.user ? `u/${p.user} · ${p.time}` : `Author hidden · ${p.time}`, 60, 50);
-    g.fillStyle = '#FF4500'; g.font = `700 14px ${FONT}`; g.textAlign = 'right'; g.fillText('reddit', 398, 40); g.textAlign = 'left';
-    g.fillStyle = INK; g.font = `700 17.5px ${FONT}`;
-    const [ty] = wrap(g, p.title, 22, 92, 376, 23, 2);
-    g.fillStyle = MUTED; g.font = `400 14.5px ${FONT}`;
-    wrap(g, p.text, 22, ty + 27, 376, 20.5, 3);
-    if (p.ups == null) {
-      // no vote counts: show the post's tags (e.g. the judge's category and score) as chips instead
-      let x = 20; g.font = `600 13px ${FONT}`;
-      for (const t of p.tags || []) {
-        const w = g.measureText(t).width + 28;
-        g.fillStyle = '#F2F3F5'; g.beginPath(); g.roundRect(x, 216, w, 28, 14); g.fill();
-        g.fillStyle = MUTED; g.fillText(t, x + 14, 235); x += w + 8;
-      }
-    } else {
-      g.fillStyle = '#F2F3F5';
-      g.beginPath(); g.roundRect(20, 216, 88, 28, 14); g.fill();
-      g.font = `700 13px ${FONT}`; g.fillStyle = '#FF4500'; g.fillText('▲', 32, 235);
-      g.fillStyle = INK; g.fillText(String(p.ups), 50, 235);
-      g.fillStyle = MUTED; g.fillText('▼', 50 + g.measureText(String(p.ups)).width + 8, 235);
-      const ct = `${p.comments} comments`; g.font = `600 13px ${FONT}`;
-      const cw = g.measureText(ct).width + 28;
-      g.fillStyle = '#F2F3F5'; g.beginPath(); g.roundRect(116, 216, cw, 28, 14); g.fill();
-      g.fillStyle = MUTED; g.fillText(ct, 130, 235);
-    }
+    g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText(`Posted ${p.time} ago · author hidden`, 60, 50);
   }
+  g.fillStyle = '#FF4500'; g.font = `700 14px ${FONT}`; g.textAlign = 'right'; g.fillText('reddit', 398, 40); g.textAlign = 'left';
+  g.fillStyle = INK; g.font = `700 17px ${FONT}`;
+  const [ty] = wrap(g, p.title, 22, 92, 376, 22.5, 2);
+  g.fillStyle = MUTED; g.font = `400 14px ${FONT}`;
+  wrap(g, p.text, 22, ty + 26, 376, 20, 3);
+  const [bg, fg] = CAT_STYLE[p.cat] || ['#F2F0EF', '#3B3735'];
+  const w = chip(g, p.cat, 20, 214, bg, fg);
+  g.fillStyle = MUTED; g.font = `500 12.5px ${FONT}`;
+  g.fillText(who ? `r/${p.sub} · ${p.time} ago` : 'Public thread', 20 + w + 10, 231.5);
   return c;
 }
 
@@ -496,7 +588,7 @@ function drawBadge(text, color, outline) {
 
 function glyphBox(g, P, x, y, size, radius) {
   g.fillStyle = P.color; g.beginPath(); g.roundRect(x, y, size, size, radius); g.fill();
-  g.fillStyle = '#fff'; g.font = `700 ${Math.round(size * (P.glyph.length > 2 ? 0.3 : 0.4))}px ${FONT}`;
+  g.fillStyle = '#fff'; g.font = `700 ${Math.round(size * (P.glyph.length > 2 ? 0.28 : 0.4))}px ${FONT}`;
   g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(P.glyph, x + size / 2, y + size / 2 + 0.5);
   g.textAlign = 'left'; g.textBaseline = 'alphabetic';
 }
@@ -513,7 +605,7 @@ function drawNode(platform, handle, detail, photo) {
     glyphBox(g, P, 14, 17, 44, 11);
   }
   label(g, P.label.toUpperCase(), 72, 28);
-  g.fillStyle = '#16A34A'; g.beginPath(); g.arc(NW - 16, 24, 4, 0, TAU); g.fill();
+  g.fillStyle = ACCENT; g.beginPath(); g.arc(NW - 16, 24, 4, 0, TAU); g.fill();
   g.fillStyle = INK; g.font = `600 15px ${FONT}`; g.fillText(fit(g, handle, 164), 72, 48);
   g.fillStyle = MUTED; g.font = `400 12px ${FONT}`; g.fillText(fit(g, detail, 164), 72, 65);
   return c;
@@ -523,23 +615,23 @@ function drawNode(platform, handle, detail, photo) {
 function drawStrip(g, pk) {
   pk.profiles.forEach(([pl], j) => glyphBox(g, PLATFORMS[pl], j * 27, 4, 22, 6));
   g.fillStyle = MUTED; g.font = `500 12.5px ${FONT}`;
-  g.fillText(pk.profiles.length ? `${pk.profiles.length} profiles linked` : 'Author anonymised · no profile lookup', pk.profiles.length * 27 + 6, 20);
+  g.fillText(pk.profiles.length ? `${pk.profiles.length} profiles linked to ${pk.name}` : 'Author anonymised · no profile lookup', pk.profiles.length * 27 + 6, 20);
 }
 
 function drawPlan(g, pk, p) {
   const pl = pk.plan, e = E.outCubic(p), sel = p > 0.72;
   surface(g, PW, PH, 14);
-  label(g, 'PURCHASE INTENT', 20, 30);
+  label(g, `${CLIENT.name.toUpperCase()} PLAN THEY WOULD BUY`, 20, 30);
   g.textAlign = 'right'; g.fillStyle = INK; g.font = `600 12.5px ${FONT}`;
   g.fillText(`${Math.round(pl.conf * e)}% confidence`, PW - 20, 30); g.textAlign = 'left';
   PLANS.forEach((t, r) => {
     const y = 44 + r * 42, on = sel && r === pl.pick, v = pl.probs[r] * e;
     if (on) { g.fillStyle = 'rgba(0,0,0,0.05)'; g.beginPath(); g.roundRect(10, y, PW - 20, 38, 9); g.fill(); }
-    g.fillStyle = on ? BLACK : INK; g.font = `600 14px ${FONT}`; g.fillText(t.name, 20, y + 17);
+    g.fillStyle = INK; g.font = `600 14px ${FONT}`; g.fillText(t.name, 20, y + 17);
     g.fillStyle = MUTED; g.font = `400 12px ${FONT}`; g.fillText(`$${t.price}/mo`, 20, y + 32);
     g.fillStyle = TRACK; g.beginPath(); g.roundRect(108, y + 14, 240, 9, 4.5); g.fill();
     g.fillStyle = on ? BLACK : OFF; g.beginPath(); g.roundRect(108, y + 14, Math.max(9, 240 * v / 100), 9, 4.5); g.fill();
-    g.textAlign = 'right'; g.fillStyle = on ? BLACK : INK; g.font = `600 13.5px ${FONT}`;
+    g.textAlign = 'right'; g.fillStyle = INK; g.font = `${on ? 700 : 500} 13.5px ${FONT}`;
     g.fillText(`${Math.round(v)}%`, PW - 20, y + 23); g.textAlign = 'left';
   });
   label(g, 'SIGNALS', 20, 188);
@@ -550,7 +642,7 @@ function drawPlan(g, pk, p) {
 function drawTone(g, pk, p) {
   const t = pk.tone, e = E.outCubic(p), sel = p > 0.72;
   surface(g, PW, PH, 14);
-  label(g, 'REPLY TONE', 20, 30);
+  label(g, 'HOW TO ANSWER', 20, 30);
   if (sel) {
     g.textAlign = 'right'; g.fillStyle = ACCENT; g.font = `600 12.5px ${FONT}`;
     g.fillText(`Go ${TONES[t.pick].toLowerCase()}`, PW - 20, 30); g.textAlign = 'left';
@@ -569,32 +661,29 @@ function drawTone(g, pk, p) {
   wrap(g, t.why, 20, 210, PW - 40, 17, 2);
 }
 
-// Reply = short text, typed out, then our link and its preview card. p runs 0..1.25: typing, then the card fades in.
+// the client's avatar on Reddit: white disc with its mark
+function clientAvatar(g, x, y, r) {
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  g.strokeStyle = alpha(CLIENT.color, 0.2); g.lineWidth = 1; g.stroke();
+  if (IMG.rr) { const w = r * 1.15, h = w * IMG.rr.naturalHeight / IMG.rr.naturalWidth; g.drawImage(IMG.rr, x - w / 2, y - h / 2, w, h); }
+}
+
+// Reply = short text, typed out, then the link and its preview card. p runs 0..1.25: typing, then the card fades in.
 const REPLY_TEXT_Y = 82, REPLY_LH = 21;
 function drawReply(g, pk, p) {
-  const post = POSTS[pk.idx], isX = post.kind === 'x';
-  surface(g, RW, RH, 14, alpha(ACCENT, 0.2));
-  const ax = isX ? 40 : 36, ay = isX ? 36 : 34, ar = isX ? 20 : 15;
-  brandAvatar(g, ax, ay, ar);
-  let x;
-  const bodyFont = `400 ${isX ? 15.5 : 15}px ${FONT}`;
-  if (isX) {
-    g.fillStyle = INK; g.font = `600 15px ${FONT}`; g.fillText(BRAND.name, 70, 32);
-    x = 70 + g.measureText(BRAND.name).width + 6;
-    g.fillStyle = MUTED; g.font = `400 13.5px ${FONT}`; g.fillText(`@${BRAND.handle} · now`, x, 32);
-    g.font = `400 13px ${FONT}`; g.fillText('Replying to ', 70, 52);
-    g.fillStyle = '#1D9BF0'; g.fillText('@' + post.handle, 70 + g.measureText('Replying to ').width, 52);
-  } else {
-    g.fillStyle = INK; g.font = `700 13px ${FONT}`; g.fillText('u/' + BRAND.reddit, 60, 31);
-    x = 60 + g.measureText('u/' + BRAND.reddit).width + 6;
-    g.fillStyle = THEME.accentSoft; g.beginPath(); g.roundRect(x, 19, 58, 16, 4); g.fill();
-    g.fillStyle = ACCENT; g.font = `600 9.5px ${FONT}`; g.fillText('OFFICIAL', x + 6, 31);
-    g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText('· just now', x + 64, 31);
-    g.fillText(post.user ? 'replying to u/' + post.user : 'replying to the original post', 60, 49);
-  }
+  surface(g, RW, RH, 14, alpha(CLIENT.color, 0.2));
+  clientAvatar(g, 36, 34, 15);
+  g.fillStyle = INK; g.font = `700 13px ${FONT}`; g.fillText('u/' + CLIENT.handle, 60, 31);
+  const x = 60 + g.measureText('u/' + CLIENT.handle).width + 6;
+  g.font = `600 10px ${FONT}`;
+  const fw = g.measureText(CLIENT.flair).width + 12;
+  g.fillStyle = CLIENT.soft; g.beginPath(); g.roundRect(x, 19, fw, 16, 4); g.fill();
+  g.fillStyle = CLIENT.color; g.fillText(CLIENT.flair, x + 6, 30.5);
+  g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText('· just now', x + fw + 6, 31);
+  g.fillText(pk.person ? `replying to u/${pk.person.handle} in r/${POSTS[pk.idx].sub}` : `replying to the original post in r/${POSTS[pk.idx].sub}`, 60, 49);
 
-  g.font = bodyFont;
-  const text = pk.reply, url = pk.link.url, total = text.length + url.length;
+  g.font = `400 15px ${FONT}`;
+  const text = pk.reply, url = pk.link.slug, total = text.length + url.length;
   const chars = Math.round(total * Math.min(p, 1));
   const nLines = Math.min(3, layoutLines(g, text, RW - 40).length);
   const urlY = REPLY_TEXT_Y + nLines * REPLY_LH;
@@ -602,7 +691,7 @@ function drawReply(g, pk, p) {
   let [cy, cx] = wrap(g, text.slice(0, chars), 20, REPLY_TEXT_Y, RW - 40, REPLY_LH, 3);
   const urlShown = url.slice(0, Math.max(0, chars - text.length));
   if (urlShown) {
-    g.fillStyle = isX ? '#1D9BF0' : ACCENT; g.font = `500 ${isX ? 15.5 : 15}px ${FONT}`;
+    g.fillStyle = CLIENT.color; g.font = `500 15px ${FONT}`;
     g.fillText(urlShown, 20, urlY); cy = urlY; cx = 20 + g.measureText(urlShown).width;
   }
   if (p < 1) { g.fillStyle = ACCENT; g.fillRect(cx + 2, cy - 14, 2, 18); }
@@ -612,17 +701,17 @@ function drawReply(g, pk, p) {
   const a = Math.max(0, Math.min(1, (p - 1) / 0.25));
   if (a > 0) {
     g.save(); g.globalAlpha = a; g.translate(0, (1 - a) * 8);
-    g.fillStyle = '#fff'; g.strokeStyle = '#DFE3EA'; g.lineWidth = 1;
+    g.fillStyle = '#fff'; g.strokeStyle = '#E2E2E8'; g.lineWidth = 1;
     g.beginPath(); g.roundRect(20.5, top + 0.5, RW - 41, 90, 12); g.fill(); g.stroke();
     g.save(); g.beginPath(); g.roundRect(21, top + 1, 96, 89, [11, 0, 0, 11]); g.clip();
     const grad = g.createLinearGradient(21, top, 117, top + 90);
-    grad.addColorStop(0, ACCENT); grad.addColorStop(1, THEME.accentDeep);
+    grad.addColorStop(0, CLIENT.deep); grad.addColorStop(1, CLIENT.color);
     g.fillStyle = grad; g.fillRect(21, top + 1, 96, 89);
-    if (BRAND_IMG.mark) g.drawImage(BRAND_IMG.mark, 29, top + 9, 27, 27 * BRAND_IMG.mark.naturalHeight / BRAND_IMG.mark.naturalWidth);
+    if (IMG.rrWhite) g.drawImage(IMG.rrWhite, 29, top + 9, 15, 15 * IMG.rrWhite.naturalHeight / IMG.rrWhite.naturalWidth);
     g.fillStyle = '#fff'; g.font = `700 12.5px ${FONT}`;
-    wrap(g, pk.link.thumb, 29, top + 34, 80, 15, 3);
+    wrap(g, pk.link.thumb, 29, top + 40, 80, 15, 3);
     g.restore();
-    g.fillStyle = MUTED; g.font = `400 11.5px ${FONT}`; g.fillText(url.split('/')[0], 130, top + 24);
+    g.fillStyle = MUTED; g.font = `400 11.5px ${FONT}`; g.fillText(CLIENT.domain, 130, top + 24);
     g.fillStyle = INK; g.font = `600 14px ${FONT}`; g.fillText(fit(g, pk.link.title, RW - 170), 130, top + 45);
     g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText(fit(g, pk.link.desc, RW - 170), 130, top + 66);
     g.restore();
@@ -631,10 +720,10 @@ function drawReply(g, pk, p) {
   if (p >= 1.25) {
     g.fillStyle = MUTED; g.font = `500 12px ${FONT}`;
     g.fillText(`${PLANS[pk.plan.pick].name} plan · ${TONES[pk.tone.pick]} tone`, 20, RH - 14);
-    g.fillStyle = ACCENT; g.beginPath(); g.roundRect(RW - 108, RH - 32, 88, 26, 13); g.fill();
-    g.fillStyle = '#fff'; g.font = `600 13px ${FONT}`; g.textAlign = 'center'; g.fillText(isX ? 'Reply' : 'Comment', RW - 64, RH - 14); g.textAlign = 'left';
+    g.fillStyle = ACCENT; g.beginPath(); g.roundRect(RW - 128, RH - 32, 108, 26, 13); g.fill();
+    g.fillStyle = '#fff'; g.font = `600 13px ${FONT}`; g.textAlign = 'center'; g.fillText('Post comment', RW - 74, RH - 14); g.textAlign = 'left';
   } else {
-    g.fillStyle = MUTED; g.font = `500 12px ${FONT}`; g.fillText('Drafting…', 20, RH - 14);
+    g.fillStyle = MUTED; g.font = `500 12px ${FONT}`; g.fillText(`${PRESENTER.name} is drafting…`, 20, RH - 14);
   }
 }
 
@@ -694,25 +783,33 @@ function updateTweens(now) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /* ---------- layout ---------- */
+const $ = id => document.getElementById(id);
+const briefEl = $('brief');
 const GX = 0.42, GY = 0.4;
 let cols = 6, rows = 5;
+// px on the left taken by the brief rail; the stage is framed in what's left
+const inset = () => { const r = briefEl.getBoundingClientRect(); return r.width ? r.right + 8 : 0; };
 function computeGrid() {
-  const a = innerWidth / innerHeight;
+  const a = (innerWidth - inset()) / innerHeight;
   cols = a >= 1.25 ? 6 : a >= 0.8 ? 5 : 3;
   rows = Math.ceil(POSTS.length / cols);
 }
 const gridW = () => cols * CARD_W + (cols - 1) * GX;
 const gridH = () => rows * CARD_H + (rows - 1) * GY;
-const portrait = () => innerWidth / innerHeight < 0.9;
+const portrait = () => (innerWidth - inset()) / innerHeight < 0.9;
+const VF = () => Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
 
 function fitDist(w, h) {
-  const vf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   const hudSpace = innerWidth < 640 ? 220 : 170;
   const uh = Math.max(0.45, (innerHeight - hudSpace) / innerHeight);
-  const uw = (innerWidth - 32) / innerWidth;
-  return Math.max((h / 2) / (vf * uh), (w / 2) / (vf * camera.aspect * uw));
+  const uw = (innerWidth - 32 - inset()) / innerWidth;
+  return Math.max((h / 2) / (VF() * uh), (w / 2) / (VF() * camera.aspect * uw));
 }
-const frame = (x, y, w, h) => ({ x, y, z: fitDist(w, h) });
+// camera that centres (x, y) in the free part of the screen, right of the brief rail
+function frame(x, y, w, h) {
+  const z = fitDist(w, h), worldPerPx = 2 * z * VF() / innerHeight;
+  return { x: x - inset() / 2 * worldPerPx, y, z };
+}
 
 function colPos(k) {
   return portrait() ? [0, -(k - 1) * COL_STEP_V] : [(k - 1) * (CARD_W + COL_GAP), 0];
@@ -729,6 +826,7 @@ function viewFrame(v) {
 /* ---------- build scene ---------- */
 const cardGeo = new THREE.PlaneGeometry((CW + CM * 2) * U, (CH + CM * 2) * U);
 const nodeGeo = new THREE.PlaneGeometry((NW + NM * 2) * U, (NH + NM * 2) * U);
+const dotGeo = new THREE.CircleGeometry(0.045, 24);
 const unitGeo = new THREE.PlaneGeometry(1, 1);
 const PILL_KEYS = ['badge', 'plan', 'tone'];
 let glowTex, cards = [], nodes = [], panels = [], threads = [];
@@ -748,7 +846,8 @@ function buildCards() {
   glowTex = tex(drawGlow());
   pulseMat.map = glowTex; pulseMat.needsUpdate = true;
   POSTS.forEach((p, i) => {
-    const m = mat(tex(drawCard(p)));
+    const baseTex = tex(drawCard(p));
+    const m = mat(baseTex);
     const mesh = new THREE.Mesh(cardGeo, m);
     const glowMat = mat(glowTex); glowMat.opacity = 0;
     const glow = new THREE.Mesh(cardGeo, glowMat);
@@ -760,10 +859,10 @@ function buildCards() {
     });
     scene.add(mesh);
     const c = {
-      i, p, mesh, mat: m, glow, glowMat, pills, home: null,
+      i, p, mesh, mat: m, glow, glowMat, pills, home: null, baseTex, whoTex: null,
       st: { x: 0, y: 0, z: 0, s: 1, rz: 0, op: 0, amp: 1, glow: 0, badge: 0, plan: 0, tone: 0, ph: ((i * 0.6180339) % 1) * TAU },
     };
-    // pills sit in a row above the post: fit, then plan, then tone
+    // pills sit in a row above the post: match, then plan, then tone
     c.setPill = (k, text, color, outline) => {
       const b = badgeTex(text, color, outline), pill = pills[k];
       pill.mat.map = b.t; pill.mat.needsUpdate = true; pill.w = b.w; pill.h = b.h;
@@ -783,21 +882,33 @@ function buildCards() {
       mesh.renderOrder = on ? 20 : 0; glow.renderOrder = on ? 21 : 0;
       pills.forEach(pl => { pl.mesh.renderOrder = on ? 22 : 0; });
     };
+    // swap the anonymous header for the person Needora found
+    c.reveal = who => {
+      if (!c.whoTex) c.whoTex = tex(drawCard(p, who));
+      m.map = c.whoTex; m.needsUpdate = true;
+    };
+    c.unreveal = () => { m.map = baseTex; m.needsUpdate = true; };
     cards.push(c);
   });
 }
 
 function layoutHomes() {
   computeGrid();
-  const half = Math.ceil(POSTS.length / 2);
-  cards.forEach((c, i) => {
-    const slot = i < half ? i * 2 : (i - half) * 2 + 1; // interleave X and Reddit
+  // picks land in the middle rows, not at the edges
+  const order = POSTS.map((_, i) => i);
+  const mid = Math.floor(rows / 2) * cols, slots = [mid - cols + 1, mid + Math.floor(cols / 2), mid + cols - 2];
+  PICKS.forEach((P, k) => {
+    const s = Math.min(POSTS.length - 1, Math.max(0, slots[k]));
+    const from = order.indexOf(P.idx);
+    [order[from], order[s]] = [order[s], order[from]];
+  });
+  order.forEach((ci, slot) => {
     const col = slot % cols, row = Math.floor(slot / cols);
     const inRow = row === rows - 1 ? POSTS.length - row * cols : cols; // centre a short last row
-    c.home = {
+    cards[ci].home = {
       x: (col - (inRow - 1) / 2) * (CARD_W + GX),
       y: ((rows - 1) / 2 - row) * (CARD_H + GY),
-      z: Math.sin(i * 12.9898) * 0.35,
+      z: Math.sin(ci * 12.9898) * 0.35,
     };
   });
 }
@@ -805,7 +916,7 @@ function layoutHomes() {
 function makeLine(order) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
-  const lineMat = new THREE.LineBasicMaterial({ color: 0x8C9AB5, transparent: true, depthTest: false, opacity: 0 });
+  const lineMat = new THREE.LineBasicMaterial({ color: ACCENT, transparent: true, depthTest: false, opacity: 0 });
   const line = new THREE.Line(geo, lineMat); line.renderOrder = order; line.frustumCulled = false;
   scene.add(line);
   return { line, lineMat };
@@ -817,11 +928,14 @@ function setLine(l, ax, ay, bx, by, p, op) {
   l.lineMat.opacity = op;
 }
 
+// crawl link styled after the Needora mark: a line that ends in a dot
+const dotMat = () => new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, depthTest: false, depthWrite: false, opacity: 0 });
 function addNode(card, [x, y], profile) {
   const m = mat(tex(drawNode(...profile)));
   const mesh = new THREE.Mesh(nodeGeo, m); mesh.renderOrder = 21;
-  scene.add(mesh);
-  const n = { card, mesh, mat: m, ...makeLine(15), st: { x, y, z: 0, s: 0, op: 0, lp: 0, lop: 0, ph: Math.random() * TAU } };
+  const dot = new THREE.Mesh(dotGeo, dotMat()); dot.renderOrder = 16;
+  scene.add(mesh, dot);
+  const n = { card, mesh, mat: m, dot, ...makeLine(15), st: { x, y, z: 0, s: 0, op: 0, lp: 0, lop: 0, ph: Math.random() * TAU } };
   nodes.push(n);
   return n;
 }
@@ -846,8 +960,8 @@ function addPanel(card, w, h, m, draw, x, y) {
 
 function clearExtras() {
   for (const n of nodes) {
-    scene.remove(n.mesh, n.line);
-    n.mat.map.dispose(); n.mat.dispose(); n.line.geometry.dispose(); n.lineMat.dispose();
+    scene.remove(n.mesh, n.line, n.dot);
+    n.mat.map.dispose(); n.mat.dispose(); n.line.geometry.dispose(); n.lineMat.dispose(); n.dot.material.dispose();
   }
   for (const pn of panels) { scene.remove(pn.mesh); pn.tex.dispose(); pn.mat.dispose(); pn.mesh.geometry.dispose(); }
   for (const th of threads) { scene.remove(th.line); th.line.geometry.dispose(); th.lineMat.dispose(); }
@@ -888,6 +1002,10 @@ function tick(now) {
     n.mesh.scale.setScalar(Math.max(s.s, 0.001));
     n.mat.opacity = s.op;
     setLine(n, cp.x, cp.y, n.mesh.position.x, n.mesh.position.y, s.lp, s.lop);
+    const a = n.line.geometry.attributes.position.array;
+    n.dot.position.set(a[3], a[4], 0);
+    n.dot.material.opacity = s.lop;
+    n.dot.visible = s.lop > 0.01;
   }
 
   for (const pn of panels) {
@@ -899,7 +1017,7 @@ function tick(now) {
     if (pn.drawn !== s.p) pn.redraw();
   }
 
-  // reply threads: vertical line from the post's avatar down to our avatar
+  // reply threads: vertical line from the post's avatar down to ours
   for (const th of threads) {
     const cp = th.card.mesh.position, rp = th.reply.mesh.position;
     setLine(th, cp.x + th.ax, cp.y + th.ay, cp.x + th.ax, rp.y + th.ry, th.st.lp, th.st.op);
@@ -919,13 +1037,12 @@ function tick(now) {
   requestAnimationFrame(tick);
 }
 
-/* ---------- UI ---------- */
-const $ = id => document.getElementById(id);
+/* ---------- UI: dock, steps, brief ---------- */
 const dock = $('dock'), statusEl = $('status'), nextBtn = $('next'), nextLabel = $('nextLabel');
 const state = { step: 0, busy: false };
 let runId = 0;
 const LAST = 6;
-const NEXT_LABEL = ['Highlight best fits', 'Highlight best fits', 'Estimate their plan', 'Pick a reply tone', 'Write the replies', 'Open the link'];
+const NEXT_LABEL = ['Highlight best fits', 'Highlight best fits', 'Estimate their plan', 'Pick how to answer', 'Write the replies', 'Open the link'];
 
 function status(t) { statusEl.textContent = t; }
 function setBusy(b) {
@@ -938,97 +1055,137 @@ function setBusy(b) {
     nextLabel.textContent = NEXT_LABEL[state.step];
   }
 }
+const nowEl = $('now');
 function setStep(n) {
   for (let i = 1; i <= LAST; i++) {
     $('s' + i).classList.toggle('on', i === n);
     $('s' + i).classList.toggle('done', i < n);
   }
+  $('nowNum').textContent = `Step ${n} of ${LAST}`;
+  $('nowTitle').textContent = NOW[n][0];
+  $('nowText').textContent = NOW[n][1];
+  nowEl.classList.remove('flash'); void nowEl.offsetWidth; nowEl.classList.add('flash');
+  setFunnel(n);
 }
-const picks = () => PICKS.map(p => cards[p.idx]);
+
+// funnel numbers are the real run: screened → matched → worth a reply → picked
+const FUNNEL = [
+  ['Posts screened', RUN.screened, 1, false],
+  [`Match ${CLIENT.name}`, RUN.matched, 1, false],
+  ['Worth a reply', RUN.reply, 2, true],
+  ['Picked for outreach', PICKS.length, 2, true],
+];
+const fmt = n => n.toLocaleString('en-US');
+$('runDate').textContent = new Date(RUN.exported + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+$('funnel').innerHTML = FUNNEL.map(([l, v, , red]) =>
+  `<div class="frow${red ? ' red' : ''}" style="--w:${Math.max(3, Math.sqrt(v / RUN.screened) * 100).toFixed(1)}%"><span>${l}</span><b>0</b><i></i></div>`).join('');
+function countUp(el, v) {
+  const t0 = performance.now(), d = reduced ? 0 : 700;
+  const f = now => { const p = d ? Math.min(1, (now - t0) / d) : 1; el.textContent = fmt(Math.round(v * E.outCubic(p))); if (p < 1) requestAnimationFrame(f); };
+  requestAnimationFrame(f);
+}
+function setFunnel(n) {
+  [...$('funnel').children].forEach((row, k) => {
+    const on = n >= FUNNEL[k][2], b = row.querySelector('b');
+    if (on && !row.classList.contains('on')) countUp(b, FUNNEL[k][1]);
+    if (!on) b.textContent = '0';
+    row.classList.toggle('on', on);
+  });
+}
+const SRC_LABEL = { reddit: 'Reddit', hackernews: 'Hacker News', linkedin: 'LinkedIn', twitter: 'X' };
+$('srcs').innerHTML = RUN.sources.map(([k, v]) =>
+  `<div><span>${SRC_LABEL[k] || k}</span><i style="--w:${(v / RUN.sources[0][1] * 100).toFixed(1)}%"></i><b>${v}</b></div>`).join('');
+const W = [['Fit', RUN.weights.fit, ACCENT], ['Buying intent', RUN.weights.intent, '#000'], ['Ideal customer', RUN.weights.icp, '#8A8380'], ['Reply welcome', RUN.weights.welcome, '#D9D3D0']];
+$('weights').innerHTML = W.map(([, v, c]) => `<i style="flex:${v};background:${c}"></i>`).join('');
+$('wlegend').innerHTML = W.map(([l, v, c]) => `<span style="--c:${c}">${l} ${Math.round(v * 100)}%</span>`).join('');
+
+const picks = () => PICKS.map(P => cards[P.idx]);
 const per = [];   // per-pick panels for steps 3–6
 
-/* ---------- step 6: tailored page ---------- */
+/* ---------- step 6: the page made for each person ---------- */
 const browser = $('browser'), scrim = $('scrim'), pageEl = $('page'), urlEl = $('url'), tabsEl = $('tabs');
-const page = { open: false, i: 0 };
-const esc = s => s.replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-const img = (id, size) => !id ? `<span style="display:inline-block;border-radius:50%;flex:none;width:${size}px;height:${size}px;background:var(--accent-soft)"></span>` : `<span style="display:inline-block;overflow:hidden;border-radius:50%;flex:none;width:${size}px;height:${size}px"><img src="${photoSrc(id)}" alt="" style="display:block;width:100%;height:100%;object-fit:cover;${photoStyle(id)}"></span>`;
-
+const page = { open: false, i: 0, deadline: 0 };
 tabsEl.innerHTML = PICKS.map((P, i) =>
-  `<button type="button" data-i="${i}" aria-pressed="false">${P.photo ? `<img src="${photoSrc(P.photo)}" alt="" style="${photoStyle(P.photo)}">` : ''}<span>${esc(P.tab || P.name.split(' ')[0])}</span></button>`).join('');
+  `<button type="button" data-i="${i}" aria-pressed="false">${ph(P.person && P.person.photo, 24)}<span>${esc(P.tab || P.name.split(' ')[0])}</span></button>`).join('');
 tabsEl.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   showPage(+b.dataset.i);
 });
 
+const pillKind = t => /Review|Check/.test(t) ? 'warn' : /Keep|Nurture|Drop/.test(t) ? 'mute' : 'ok';
+const offerPrice = P => Math.round(PLANS[P.plan.pick].price * (1 - P.offer.pct / 100));
 function pageHTML(P) {
-  const post = POSTS[P.idx], pg = P.page, plan = PLANS[P.plan.pick];
-  const who = post.kind === 'x'
-    ? `${img(P.photo, 40)}<div><b>${esc(post.name)}</b><span>@${esc(post.handle)}</span></div><span class="src">on X</span>`
-    : `${img(P.photo, 40)}<div><b>${esc(P.name)}</b><span>${post.user ? `u/${esc(post.user)}` : 'Author hidden'} in r/${esc(post.sub)}</span></div><span class="src">on Reddit</span>`;
-  const said = post.kind === 'x' ? post.text : `${post.title}${/[.?!…]$/.test(post.title) ? '' : '.'} ${post.text}`;
+  const post = POSTS[P.idx], pg = P.page, plan = PLANS[P.plan.pick], run = pg.run, o = P.offer;
+  const photo = P.person && P.person.photo, rows = run.rows.slice(0, 3);
+  // fictional people are addressed by first name; anonymous authors by their thread
+  const made = P.person ? `<b>${esc(P.person.name.split(' ')[0])}</b> at ${esc(P.person.company)}` : `<b>${esc(P.madeFor)}</b>`;
+  const heldFor = P.person ? P.person.name.split(' ')[0] : 'you';
   return `
-  <div class="lp-nav">
-    <div class="logo"><img src="${BRAND.lockup}" alt="${esc(BRAND.name)}"></div>
-    <div class="made">${img(P.photo, 26)}<span>${pg.madeFor ? `Made for <b>${esc(pg.madeFor)}</b>` : `Made for <b>${esc(P.name.split(' ')[0])}</b> at ${esc(pg.company)}`}</span></div>
+  <div class="rr-nav">
+    <img src="${CLIENT.logo}" alt="${esc(CLIENT.name)}">
+    <span class="made">${ph(photo, 26)}<span>Made for ${made}</span></span>
   </div>
-  <section class="hero">
+  <section class="rr-hero">
     <div>
-      <div class="eyebrow">${esc(pg.eyebrow)}</div>
+      <div class="rr-eyebrow">${esc(pg.eyebrow)}</div>
       <h1>${esc(pg.h1)}</h1>
       <p class="sub">${esc(pg.sub)}</p>
-      <div class="ctas"><span class="btn p">${esc(pg.cta)}</span><span class="btn">${esc(pg.cta2)}</span></div>
+      <div class="asked">${ph(photo, 28)}<span>You asked in r/${esc(post.sub)}, ${esc(post.time)} ago: <q>${esc(post.title)}</q></span></div>
     </div>
-    <div class="said">
-      <div class="who">${who}</div>
-      <p>“${esc(said)}”</p>
-      <div class="delta">
-        <div class="before"><b>${esc(pg.delta[0][0])}</b><span>${esc(pg.delta[0][1])}</span></div>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg>
-        <div class="after"><b>${esc(pg.delta[1][0])}</b><span>${esc(pg.delta[1][1])}</span></div>
-      </div>
-    </div>
-  </section>
-  <section class="how">
-    <h2>How it fixes this for ${esc(pg.company)}</h2>
-    <div class="how-grid">${pg.steps.map(([t, d], k) => `<div><em>Step ${k + 1}</em><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join('')}</div>
-  </section>
-  <section class="offer">
-    <h2>Your offer</h2>
-    <div class="offer-grid">
-      <div class="plan">
-        <span class="tag">PICKED FOR YOU</span>
-        <h3>${esc(plan.name)} plan</h3>
-        <div class="price"><b>$${plan.price}</b><span>${esc(pg.cadence)}</span></div>
-        <div class="deal">${esc(pg.deal)}</div>
-        <ul>${pg.includes.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
-        <span class="btn p">${esc(pg.cta)}</span>
-      </div>
-      <div class="why">
-        <h3>Why ${esc(plan.name)} and not another plan</h3>
-        <p>${esc(pg.why)}</p>
-        <div class="chips">${pg.chips.map(x => `<span>${esc(x)}</span>`).join('')}</div>
-      </div>
+    <div class="offer">
+      <span class="tag">YOUR OFFER</span>
+      <div class="oc-top"><h3>${esc(plan.name)} plan</h3><span class="off">−${o.pct}%</span></div>
+      <div class="price"><s>$${fmt(plan.price)}</s><b>$${fmt(offerPrice(P))}</b><span>per month</span></div>
+      <div class="then">For your first ${o.months} months, then $${fmt(plan.price)}. Cancel anytime.</div>
+      <div class="timer"><small>Price held for ${esc(heldFor)}.<br>Ends in</small>
+        <div class="clock" data-clock><span><b>--</b><i>hrs</i></span><span><b>--</b><i>min</i></span><span><b>--</b><i>sec</i></span></div></div>
+      <ul>${o.includes.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      <span class="rbtn p">Claim ${o.pct}% off</span>
     </div>
   </section>
-  <footer class="lp-foot"><span>This page was made for ${esc(P.name)}. Offer valid until ${OFFER_ENDS}.</span><span>${esc(BRAND.name)} · ${esc(P.link.url)}</span></footer>`;
+  <section class="rr-sec">
+    <h2>Your routine, ready to run</h2>
+    <div class="prompt"><small>We wrote this from your post.</small><p>${esc(pg.routine)}</p></div>
+    <div class="run">
+      <div class="run-head"><i></i><b>${esc(run.title)}</b><em>Sample data</em><span>${rows.length} of ${fmt(run.total)} ${esc(run.unit)}</span></div>
+      <div class="progress" style="--w:${Math.max(4, Math.min(100, rows.length / run.total * 100 * 8)).toFixed(1)}%"><i></i></div>
+      <div class="table"><table>
+        <thead><tr>${run.cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(r => `<tr>${r.map((v, k) => `<td>${k === run.pill ? `<span class="pill ${pillKind(v)}">${esc(v)}</span>` : esc(v)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>
+    </div>
+  </section>
+  <footer class="rr-foot"><span>Made for ${esc(P.person ? P.person.name : P.madeFor)} by ${esc(CLIENT.name)}. Nothing changes in your tools until you approve.</span><span class="found">Found with <img src="${PRESENTER.lockupBlack}" alt="${esc(PRESENTER.name)}"></span></footer>`;
 }
+
+// the 48-hour hold starts the first time a page opens and keeps ticking across tabs
+function tickClock() {
+  const el = pageEl.querySelector('[data-clock]');
+  if (!el || !page.deadline) return;
+  const left = Math.max(0, page.deadline - Date.now()) / 1000;
+  const parts = [Math.floor(left / 3600), Math.floor(left / 60) % 60, Math.floor(left) % 60];
+  el.querySelectorAll('b').forEach((b, k) => { b.textContent = String(parts[k]).padStart(2, '0'); });
+}
+setInterval(tickClock, 1000);
 
 function renderPage(i) {
   const P = PICKS[i];
   page.i = i;
-  pageEl.innerHTML = `<div class="lp">${pageHTML(P)}</div>`;
+  pageEl.innerHTML = `<div class="rr">${pageHTML(P)}</div>`;
   pageEl.scrollTop = 0;
-  const [host, ...rest] = P.link.url.split('/');
+  const [host, ...rest] = P.link.slug.split('/');
   urlEl.innerHTML = `<b>${esc(host)}</b>/${esc(rest.join('/'))}`;
+  if (!page.deadline) page.deadline = Date.now() + OFFER_HOURS * 3600e3;
+  tickClock();
   tabsEl.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.i === i)));
 }
 function revealPage(delay) {
-  const lp = pageEl.firstElementChild;
-  setTimeout(() => lp && lp.classList.add('go'), delay);
+  const el = pageEl.firstElementChild;
+  setTimeout(() => el && el.classList.add('go'), delay);
 }
 function pageStatus(i) {
-  const P = PICKS[i];
-  status(`${P.name}'s page · ${PLANS[P.plan.pick].name} plan, ${P.link.desc.split(' · ')[1]}`);
+  const P = PICKS[i], plan = PLANS[P.plan.pick];
+  status(`${P.name}'s page · ${plan.name} at $${fmt(offerPrice(P))}/month, ${P.offer.pct}% off for ${OFFER_HOURS} hours`);
 }
 
 // screen rect of the link preview inside a reply panel
@@ -1066,13 +1223,13 @@ async function openPage(i) {
 async function closePage() {
   if (!page.open) return;
   page.open = false;
-  const lp = pageEl.firstElementChild; if (lp) lp.classList.remove('go');
+  const el = pageEl.firstElementChild; if (el) el.classList.remove('go');
   const r = linkRect(page.i), f = browser.getBoundingClientRect();
   browser.style.transition = 'transform .45s cubic-bezier(.5,0,.75,0), opacity .3s ease .15s';
   if (r && !reduced) browser.style.transform = `translate(${r.left - f.left}px, ${r.top - f.top}px) scale(${r.width / f.width}, ${r.height / f.height})`;
   browser.style.opacity = '0';
   scrim.style.opacity = '0';
-  status('3 replies posted, each linking to its own page');
+  status(`3 replies ready, each linking to its own ${CLIENT.name} page`);
   setBusy(state.busy);
   await sleep(460);
   if (!page.open) { browser.hidden = true; scrim.hidden = true; }
@@ -1084,7 +1241,7 @@ function showPage(i) {
   pageStatus(i);
 }
 function hidePageNow() {
-  page.open = false;
+  page.open = false; page.deadline = 0;
   browser.hidden = true; scrim.hidden = true;
   browser.style.transition = 'none'; browser.style.transform = 'none';
 }
@@ -1093,7 +1250,7 @@ scrim.addEventListener('click', closePage);
 
 /* ---------- steps ---------- */
 async function step1(id) {
-  setStep(1); setBusy(true); status(`Scanning ${COPY.sources}…`);
+  setStep(1); setBusy(true); status(`Screening ${fmt(RUN.screened)} posts…`);
   let found = 0;
   const order = cards.map((_, i) => i).sort(() => Math.random() - 0.5);
   await Promise.all(order.map((i, k) => {
@@ -1105,33 +1262,35 @@ async function step1(id) {
     const d = 120 + k * 32;
     to(s, { op: 1 }, 380, E.outCubic, d);
     return to(s, { x: h.x, y: h.y, z: h.z, rz: 0, s: 1 }, 1000, E.outExpo, d)
-      .then(() => { if (id === runId) status(`Scanning ${COPY.sources}… ${++found} mentions`); });
+      .then(() => { if (id === runId) status(`Screening ${fmt(RUN.screened)} posts… ${++found} matches`); });
   }));
   if (id !== runId) return;
   state.step = 1;
-  status(COPY.found || `${POSTS.length} mentions of problems we can solve`);
+  status(`${RUN.matched} people describe a problem ${CLIENT.name} solves`);
   setBusy(false);
 }
 
 async function step2(id) {
-  setStep(2); setBusy(true); status('Scoring intent and fit…');
+  setStep(2); setBusy(true); status('Scoring fit, intent, ideal customer and reply welcome…');
   const pk = picks();
   const others = cards.filter(c => !pk.includes(c));
 
-  // pull the picks toward the camera in a row (column when portrait)
-  const D = cam.z, vf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  // pull the picks toward the camera in a row (column when portrait), centred in the free area
+  const D = cam.z, vf = VF(), aspect = (innerWidth - inset()) / innerHeight;
   const gap = 0.6, port = portrait();
   const rowW = port ? CARD_W : 3 * CARD_W + 2 * gap;
   const rowH = port ? 3 * CARD_H + 2 * (gap + 0.3) : CARD_H + 0.4;
-  const z2 = Math.max(-2, Math.min(D - 4, D - Math.max(rowW / (2 * 0.8 * vf * camera.aspect), rowH / (2 * 0.68 * vf))));
+  const z2 = Math.max(-2, Math.min(D - 4, D - Math.max(rowW / (2 * 0.8 * vf * aspect), rowH / (2 * 0.68 * vf))));
+  const cx = cam.x * z2 / D;
 
   others.forEach((c, k) => to(c.st, { op: 0.32, z: c.home.z - 1.5, s: 0.96 }, 650, E.outCubic, (k % 10) * 12));
   await sleep(160); if (id !== runId) return;
   pk.forEach((c, k) => {
+    const P = PICKS[k], post = POSTS[P.idx];
     c.setFront(true);
-    c.setPill(0, PICKS[k].fit, ACCENT);
+    c.setPill(0, `${Math.round(post.score * 100)} match · ${P.need}`, ACCENT);
     const off = k - 1;
-    const x = port ? 0 : off * (CARD_W + gap);
+    const x = cx + (port ? 0 : off * (CARD_W + gap));
     const y = port ? -off * (CARD_H + gap + 0.3) : -0.1;
     const d = k * 110;
     to(c.st, { x, y, z: z2, rz: 0, s: 1, amp: 0.45 }, 850, E.softBack, d);
@@ -1140,18 +1299,18 @@ async function step2(id) {
   });
   await sleep(1150); if (id !== runId) return;
   state.step = 2;
-  status('3 best fits: high intent, clear problem');
+  status('Top 3 where a reply is welcome: fit 3–4 of 4, intent 2–3 of 4');
   setBusy(false);
 }
 
-// Step 3: quick profile crawl per person, which feeds the plan estimate
+// Step 3: quick profile crawl per person, which reveals who they are and feeds the plan estimate
 async function step3(id) {
   setStep(3); setBusy(true); status('Linking profiles…');
   const pk = picks();
   cards.filter(c => !pk.includes(c)).forEach(c => to(c.st, { op: 0.1, z: c.home.z - 6 }, 700, E.outCubic));
   pk.forEach((c, k) => {
     const [x, y] = colPos(k);
-    c.setPill(0, PICKS[k].fitShort, ACCENT);
+    c.setPill(0, `${Math.round(POSTS[PICKS[k].idx].score * 100)} match`, ACCENT);
     to(c.st, { x, y: y + Y_CARD, z: 0, s: 1, amp: 0.25, glow: 0.45 }, 750, E.inOutCubic, k * 50);
   });
   view = { type: 'columns' };
@@ -1162,7 +1321,7 @@ async function step3(id) {
   for (let i = 0; i < PICKS.length; i++) {
     const P = PICKS[i], card = pk[i], [cx, cy] = colPos(i);
     per[i] = {};
-    status(P.profiles.length ? `${P.name} · finding other profiles…` : `${P.name} · author anonymised, skipping profile lookup`);
+    status(P.profiles.length ? `r/${POSTS[P.idx].sub} author · finding their other profiles…` : `r/${POSTS[P.idx].sub} author · anonymous, estimating from the post…`);
     pulseSt.card = card; pulseSt.s = 1; pulseSt.op = 0.8;
     to(pulseSt, { s: 1.15, op: 0 }, 420, E.outCubic);
 
@@ -1176,14 +1335,15 @@ async function step3(id) {
     });
     await sleep(ns.length ? 5 * 65 + 70 + 300 : 250); if (id !== runId) return;
 
-    // collapse the found profiles into a strip of icons under the post
+    // collapse the found profiles into a strip of icons under the post, and put a face to fictional posts
+    if (P.person) card.reveal(P.person);
     const strip = addPanel(card, CW, 30, 0, g => drawStrip(g, P), cx, cy + STRIP_Y);
     strip.mesh.renderOrder = 22; per[i].strip = strip;
     ns.forEach((n, j) => to(n.st, {
       x: cx - CARD_W / 2 + (11 + j * 27) * U, y: cy + STRIP_Y, s: 0.1, op: 0, lop: 0,
     }, 300, E.inOutCubic, j * 20));
     to(strip.st, { op: 1 }, 220, E.outCubic, 200);
-    status(`${P.name} · ${P.profiles.length ? P.profiles.length + ' profiles linked, ' : ''}estimating plan…`);
+    status(P.person ? `Found ${P.person.name}, ${P.person.role} · estimating plan…` : `${P.name} · estimating plan…`);
     await sleep(260); if (id !== runId) return;
 
     const plan = addPanel(card, PW, PH, PM, (g, p) => drawPlan(g, P, p), cx, cy + PANEL_Y);
@@ -1194,7 +1354,7 @@ async function step3(id) {
   }
   await Promise.all(planned); if (id !== runId) return;
   state.step = 3;
-  status(`Best plan: ${PICKS.map(P => PLANS[P.plan.pick].name).join(' · ')}`);
+  status(`Likely plans: ${PICKS.map(P => PLANS[P.plan.pick].name).join(' · ')}`);
   setBusy(false);
 }
 
@@ -1208,7 +1368,7 @@ function foldIntoPill(card, pn, k, text, color, delay, outline) {
 }
 
 async function step4(id) {
-  setStep(4); setBusy(true); status('Reading how each person writes…');
+  setStep(4); setBusy(true); status('Reading each thread and its subreddit…');
   const pk = picks(), done = [];
   PICKS.forEach((P, i) => {
     const card = pk[i], [cx, cy] = colPos(i), d = i * 220;
@@ -1220,7 +1380,7 @@ async function step4(id) {
   });
   await Promise.all(done); if (id !== runId) return;
   state.step = 4;
-  status(`Tone: ${PICKS.map(P => TONES[P.tone.pick]).join(' · ')}`);
+  status(`Answer as: ${PICKS.map(P => TONES[P.tone.pick]).join(' · ')}`);
   setBusy(false);
 }
 
@@ -1238,31 +1398,28 @@ async function step5(id) {
     per[i].reply = reply;
     to(reply.st, { y: cy + REPLY_Y, op: 1 }, 420, E.outCubic, 180);
 
-    const isX = POSTS[P.idx].kind === 'x';
     const th = {
-      card, reply, ...makeLine(14), st: { lp: 0, op: 0.9 },
-      ax: ((isX ? 42 : 36) - CW / 2) * U, ay: (CH / 2 - (isX ? 42 : 36)) * U,
-      ry: (RH / 2 - (isX ? 36 : 34)) * U,
+      card, reply, ...makeLine(14), st: { lp: 0, op: 0.5 },
+      ax: (42 - CW / 2) * U, ay: (CH / 2 - 42) * U, ry: (RH / 2 - 34) * U,
     };
-    th.lineMat.color.set(0xC3CBD9);
     threads.push(th);
     to(th.st, { lp: 1 }, 300, E.outCubic, 300);
 
-    const typing = (P.reply.length + P.link.url.length) * 7;
+    const typing = (P.reply.length + P.link.slug.length) * 7;
     done.push(to(reply.st, { p: 1 }, typing, E.linear, 450).then(() => to(reply.st, { p: 1.25 }, 380, E.outCubic)));
     await sleep(650); if (id !== runId) return;
   }
   await Promise.all(done); if (id !== runId) return;
   state.step = 5;
-  status('3 replies drafted, each with its own link');
+  status(`3 replies drafted as ${CLIENT.name}, each with its own link`);
   setBusy(false);
 }
 
-// Step 6: "click" the link in the first reply and open its tailored page
+// Step 6: "click" the link in the first reply and open its page
 async function step6(id) {
   setStep(6); setBusy(true);
   const P = PICKS[0], reply = per[0].reply;
-  status(`Opening the link in the reply to ${P.tab || P.name.split(' ')[0]}…`);
+  status(`Opening the link in the reply to ${P.tab || P.name}…`);
   await to(reply.st, { s: 0.965 }, 120, E.outCubic); if (id !== runId) return;
   to(reply.st, { s: 1 }, 300, E.outBack);
   await openPage(0); if (id !== runId) return;
@@ -1280,28 +1437,38 @@ async function next() {
   STEPS[state.step + 1](runId);
 }
 
-function reset() {
+const intro = $('intro');
+async function reset(first) {
   const id = ++runId;
   hidePageNow();
   tweens.forEach(t => t.res()); tweens = [];
   clearExtras();
   pulseSt.op = 0; pulseSt.card = null;
-  layoutHomes();
-  cards.forEach(c => { c.setFront(false); c.clearPills(); c.st.op = 0; });
+  cards.forEach(c => { c.setFront(false); c.clearPills(); c.unreveal(); c.st.op = 0; });
   state.step = 0;
+  setBusy(true);
+  // Needora curtain: drops in on reset, lifts as the posts fly in
+  if (!first && !reduced) {
+    intro.style.transition = 'transform .45s cubic-bezier(.7,0,.2,1)';
+    intro.classList.remove('out');
+    await sleep(700); if (id !== runId) return;
+  }
+  layoutHomes();
   view = { type: 'overview' };
   Object.assign(cam, viewFrame(view));
+  setTimeout(() => { if (id === runId) { intro.style.transition = ''; intro.classList.add('out'); } }, first ? 1300 : 250);
+  await sleep(first ? 1000 : 0); if (id !== runId) return;
   step1(id);
 }
 
 nextBtn.addEventListener('click', next);
-$('reset').addEventListener('click', reset);
+$('reset').addEventListener('click', () => reset(false));
 addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('button') && (e.key === 'Enter' || e.key === ' ')) return;
   if (e.key === 'Escape') { closePage(); return; }
   if (page.open) return;
   if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
-  if (e.key === 'r' || e.key === 'R') reset();
+  if (e.key === 'r' || e.key === 'R') reset(false);
 });
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
@@ -1319,13 +1486,12 @@ addEventListener('resize', () => {
   if (problem) { status('Config: ' + problem); console.error('Mention Scout config:', problem); return; }
   try {
     await Promise.race([
-      Promise.all(['400', '500', '600', '700'].map(w => document.fonts.load(`${w} 16px "${THEME.font}"`))
-        .concat(loadPhotos(), loadBrand())),
+      Promise.all(['400', '500', '600', '700'].map(w => document.fonts.load(`${w} 16px "${THEME.font}"`)).concat(loadImages())),
       sleep(3000),
     ]);
   } catch {}
   buildCards();
   requestAnimationFrame(tick);
-  reset();
+  reset(true);
 })();
 </script>

@@ -4,10 +4,21 @@
 <title>Mention Scout</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- All content lives in config/. This file is the engine: edit it only to change how the demo looks or moves. -->
-<script src="config/brand.js"></script>
+<!-- All content lives in config/<demo>/. This file is the engine: edit it only to change how the demo looks or moves. -->
 <script src="config/platforms.js"></script>
-<script src="config/scenario.js"></script>
+<script>
+  // Which demo to show: index.html?demo=rowrun loads config/rowrun/. With no ?demo it shows config/needora/.
+  // brand.js loads first. It can list DATA_FILES (e.g. a lead export) that load before scenario.js.
+  // Classic scripts written in order, so this works from file:// as well as from a server.
+  const DEMO = (/^[a-z0-9-]+$/.exec(new URLSearchParams(location.search).get('demo') || '') || ['needora'])[0];
+  document.write(`<script src="config/${DEMO}/brand.js"><\/script>`);
+</script>
+<script>
+  if (typeof BRAND !== 'undefined') {
+    const files = [...(typeof DATA_FILES !== 'undefined' ? DATA_FILES : []), `config/${DEMO}/scenario.js`];
+    for (const src of files) document.write(`<script src="${src}"><\/script>`);
+  }
+</script>
 <style>
   /* Layout: full-bleed WebGL stage; slim HUD bar on top, floating control dock at the bottom; step 6 opens a browser window over the stage. Light mode only, by request. */
   /* Fallback values; the real ones come from THEME in config/brand.js and are applied on load. */
@@ -231,7 +242,11 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 /* ---------- config ---------- */
-// BRAND, THEME, PLATFORMS, COPY, PLANS, TONES, POSTS and PICKS come from config/*.js (classic scripts, so this works from file:// too).
+// BRAND, THEME, COPY, PLANS, TONES, POSTS and PICKS come from config/<demo>/, PLATFORMS from config/platforms.js.
+if (typeof BRAND === 'undefined' || typeof PICKS === 'undefined') {
+  document.getElementById('status').textContent = `Config: no demo "${DEMO}". Expected config/${DEMO}/brand.js and scenario.js`;
+  throw new Error(`Mention Scout: missing config/${DEMO}/`);
+}
 const OFFER_ENDS = COPY.offerEnds;
 
 // Check the rules the layout depends on. Returns the first problem as a sentence, or null.
@@ -243,6 +258,7 @@ function configError() {
     const i = POSTS.findIndex(p => p.id === P.post);
     if (i < 0) return `PICK "${P.name}" points at post id "${P.post}", which no post in POSTS has`;
     P.idx = i;
+    if (!Array.isArray(P.profiles)) return `PICK "${P.name}" needs profiles: [] (an empty list is fine)`;
     const bad = P.profiles.find(([pl]) => !PLATFORMS[pl]);
     if (bad) return `PICK "${P.name}" uses platform "${bad[0]}", which config/platforms.js does not define`;
     if (P.profiles.length > 6) return `PICK "${P.name}" has ${P.profiles.length} profiles, the most is 6`;
@@ -428,21 +444,31 @@ function drawCard(p) {
     g.fillStyle = '#FF4500'; g.beginPath(); g.arc(36, 36, 15, 0, TAU); g.fill();
     g.fillStyle = '#fff'; g.font = `700 12px ${FONT}`; g.textAlign = 'center'; g.fillText('r/', 36, 40); g.textAlign = 'left';
     g.fillStyle = INK; g.font = `700 13.5px ${FONT}`; g.fillText('r/' + p.sub, 60, 32);
-    g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText(`u/${p.user} · ${p.time}`, 60, 50);
+    g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText(p.user ? `u/${p.user} · ${p.time}` : `Author hidden · ${p.time}`, 60, 50);
     g.fillStyle = '#FF4500'; g.font = `700 14px ${FONT}`; g.textAlign = 'right'; g.fillText('reddit', 398, 40); g.textAlign = 'left';
     g.fillStyle = INK; g.font = `700 17.5px ${FONT}`;
     const [ty] = wrap(g, p.title, 22, 92, 376, 23, 2);
     g.fillStyle = MUTED; g.font = `400 14.5px ${FONT}`;
     wrap(g, p.text, 22, ty + 27, 376, 20.5, 3);
-    g.fillStyle = '#F2F3F5';
-    g.beginPath(); g.roundRect(20, 216, 88, 28, 14); g.fill();
-    g.font = `700 13px ${FONT}`; g.fillStyle = '#FF4500'; g.fillText('▲', 32, 235);
-    g.fillStyle = INK; g.fillText(String(p.ups), 50, 235);
-    g.fillStyle = MUTED; g.fillText('▼', 50 + g.measureText(String(p.ups)).width + 8, 235);
-    const ct = `${p.comments} comments`; g.font = `600 13px ${FONT}`;
-    const cw = g.measureText(ct).width + 28;
-    g.fillStyle = '#F2F3F5'; g.beginPath(); g.roundRect(116, 216, cw, 28, 14); g.fill();
-    g.fillStyle = MUTED; g.fillText(ct, 130, 235);
+    if (p.ups == null) {
+      // no vote counts: show the post's tags (e.g. the judge's category and score) as chips instead
+      let x = 20; g.font = `600 13px ${FONT}`;
+      for (const t of p.tags || []) {
+        const w = g.measureText(t).width + 28;
+        g.fillStyle = '#F2F3F5'; g.beginPath(); g.roundRect(x, 216, w, 28, 14); g.fill();
+        g.fillStyle = MUTED; g.fillText(t, x + 14, 235); x += w + 8;
+      }
+    } else {
+      g.fillStyle = '#F2F3F5';
+      g.beginPath(); g.roundRect(20, 216, 88, 28, 14); g.fill();
+      g.font = `700 13px ${FONT}`; g.fillStyle = '#FF4500'; g.fillText('▲', 32, 235);
+      g.fillStyle = INK; g.fillText(String(p.ups), 50, 235);
+      g.fillStyle = MUTED; g.fillText('▼', 50 + g.measureText(String(p.ups)).width + 8, 235);
+      const ct = `${p.comments} comments`; g.font = `600 13px ${FONT}`;
+      const cw = g.measureText(ct).width + 28;
+      g.fillStyle = '#F2F3F5'; g.beginPath(); g.roundRect(116, 216, cw, 28, 14); g.fill();
+      g.fillStyle = MUTED; g.fillText(ct, 130, 235);
+    }
   }
   return c;
 }
@@ -497,7 +523,7 @@ function drawNode(platform, handle, detail, photo) {
 function drawStrip(g, pk) {
   pk.profiles.forEach(([pl], j) => glyphBox(g, PLATFORMS[pl], j * 27, 4, 22, 6));
   g.fillStyle = MUTED; g.font = `500 12.5px ${FONT}`;
-  g.fillText(`${pk.profiles.length} profiles linked`, pk.profiles.length * 27 + 6, 20);
+  g.fillText(pk.profiles.length ? `${pk.profiles.length} profiles linked` : 'Author anonymised · no profile lookup', pk.profiles.length * 27 + 6, 20);
 }
 
 function drawPlan(g, pk, p) {
@@ -564,7 +590,7 @@ function drawReply(g, pk, p) {
     g.fillStyle = THEME.accentSoft; g.beginPath(); g.roundRect(x, 19, 58, 16, 4); g.fill();
     g.fillStyle = ACCENT; g.font = `600 9.5px ${FONT}`; g.fillText('OFFICIAL', x + 6, 31);
     g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText('· just now', x + 64, 31);
-    g.fillText('replying to u/' + post.user, 60, 49);
+    g.fillText(post.user ? 'replying to u/' + post.user : 'replying to the original post', 60, 49);
   }
 
   g.font = bodyFont;
@@ -928,7 +954,7 @@ const esc = s => s.replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '
 const img = (id, size) => !id ? `<span style="display:inline-block;border-radius:50%;flex:none;width:${size}px;height:${size}px;background:var(--accent-soft)"></span>` : `<span style="display:inline-block;overflow:hidden;border-radius:50%;flex:none;width:${size}px;height:${size}px"><img src="${photoSrc(id)}" alt="" style="display:block;width:100%;height:100%;object-fit:cover;${photoStyle(id)}"></span>`;
 
 tabsEl.innerHTML = PICKS.map((P, i) =>
-  `<button type="button" data-i="${i}" aria-pressed="false">${P.photo ? `<img src="${photoSrc(P.photo)}" alt="" style="${photoStyle(P.photo)}">` : ''}<span>${esc(P.name.split(' ')[0])}</span></button>`).join('');
+  `<button type="button" data-i="${i}" aria-pressed="false">${P.photo ? `<img src="${photoSrc(P.photo)}" alt="" style="${photoStyle(P.photo)}">` : ''}<span>${esc(P.tab || P.name.split(' ')[0])}</span></button>`).join('');
 tabsEl.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   showPage(+b.dataset.i);
@@ -938,12 +964,12 @@ function pageHTML(P) {
   const post = POSTS[P.idx], pg = P.page, plan = PLANS[P.plan.pick];
   const who = post.kind === 'x'
     ? `${img(P.photo, 40)}<div><b>${esc(post.name)}</b><span>@${esc(post.handle)}</span></div><span class="src">on X</span>`
-    : `${img(P.photo, 40)}<div><b>${esc(P.name)}</b><span>u/${esc(post.user)} in r/${esc(post.sub)}</span></div><span class="src">on Reddit</span>`;
-  const said = post.kind === 'x' ? post.text : `${post.title}. ${post.text}`;
+    : `${img(P.photo, 40)}<div><b>${esc(P.name)}</b><span>${post.user ? `u/${esc(post.user)}` : 'Author hidden'} in r/${esc(post.sub)}</span></div><span class="src">on Reddit</span>`;
+  const said = post.kind === 'x' ? post.text : `${post.title}${/[.?!…]$/.test(post.title) ? '' : '.'} ${post.text}`;
   return `
   <div class="lp-nav">
     <div class="logo"><img src="${BRAND.lockup}" alt="${esc(BRAND.name)}"></div>
-    <div class="made">${img(P.photo, 26)}<span>Made for <b>${esc(P.name.split(' ')[0])}</b> at ${esc(pg.company)}</span></div>
+    <div class="made">${img(P.photo, 26)}<span>${pg.madeFor ? `Made for <b>${esc(pg.madeFor)}</b>` : `Made for <b>${esc(P.name.split(' ')[0])}</b> at ${esc(pg.company)}`}</span></div>
   </div>
   <section class="hero">
     <div>
@@ -1083,7 +1109,7 @@ async function step1(id) {
   }));
   if (id !== runId) return;
   state.step = 1;
-  status(`${POSTS.length} mentions of problems we can solve`);
+  status(COPY.found || `${POSTS.length} mentions of problems we can solve`);
   setBusy(false);
 }
 
@@ -1136,7 +1162,7 @@ async function step3(id) {
   for (let i = 0; i < PICKS.length; i++) {
     const P = PICKS[i], card = pk[i], [cx, cy] = colPos(i);
     per[i] = {};
-    status(`${P.name} · finding other profiles…`);
+    status(P.profiles.length ? `${P.name} · finding other profiles…` : `${P.name} · author anonymised, skipping profile lookup`);
     pulseSt.card = card; pulseSt.s = 1; pulseSt.op = 0.8;
     to(pulseSt, { s: 1.15, op: 0 }, 420, E.outCubic);
 
@@ -1148,7 +1174,7 @@ async function step3(id) {
       to(n.st, { op: 1 }, 140, E.outCubic, d + 70);
       return n;
     });
-    await sleep(5 * 65 + 70 + 300); if (id !== runId) return;
+    await sleep(ns.length ? 5 * 65 + 70 + 300 : 250); if (id !== runId) return;
 
     // collapse the found profiles into a strip of icons under the post
     const strip = addPanel(card, CW, 30, 0, g => drawStrip(g, P), cx, cy + STRIP_Y);
@@ -1157,7 +1183,7 @@ async function step3(id) {
       x: cx - CARD_W / 2 + (11 + j * 27) * U, y: cy + STRIP_Y, s: 0.1, op: 0, lop: 0,
     }, 300, E.inOutCubic, j * 20));
     to(strip.st, { op: 1 }, 220, E.outCubic, 200);
-    status(`${P.name} · ${P.profiles.length} profiles linked, estimating plan…`);
+    status(`${P.name} · ${P.profiles.length ? P.profiles.length + ' profiles linked, ' : ''}estimating plan…`);
     await sleep(260); if (id !== runId) return;
 
     const plan = addPanel(card, PW, PH, PM, (g, p) => drawPlan(g, P, p), cx, cy + PANEL_Y);
@@ -1236,7 +1262,7 @@ async function step5(id) {
 async function step6(id) {
   setStep(6); setBusy(true);
   const P = PICKS[0], reply = per[0].reply;
-  status(`Opening the link in ${P.name.split(' ')[0]}'s reply…`);
+  status(`Opening the link in the reply to ${P.tab || P.name.split(' ')[0]}…`);
   await to(reply.st, { s: 0.965 }, 120, E.outCubic); if (id !== runId) return;
   to(reply.st, { s: 1 }, 300, E.outBack);
   await openPage(0); if (id !== runId) return;

@@ -17,6 +17,16 @@ python3 -m http.server 8000
 
 Then go to http://localhost:8000 (add `?demo=rowrun` for RowRun). Use **Next** (or →/Space) to step through, **R** to restart, and **Esc** to close the page.
 
+## Before your first commit
+
+Run this once in your clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The `commit-msg` hook in `.githooks/` removes `Co-authored-by:` lines and "Generated with …" footers, so only the people on the team show up as contributors. When you squash-merge a pull request on GitHub, delete any `Co-authored-by:` lines GitHub adds to the merge message too.
+
 ## Layout
 
 ```

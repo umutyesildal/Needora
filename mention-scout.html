@@ -1,0 +1,730 @@
+<meta charset="utf-8">
+<title>Mention Scout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+  /* Layout: full-bleed WebGL stage; slim HUD bar on top, floating control dock at the bottom. Light mode only, by request. */
+  :root {
+    --bg: #F1F2F6;
+    --dot: #D7DBE4;
+    --ink: #12161D;
+    --muted: #5C6574;
+    --line: #DDE1E8;
+    --surface: #FFFFFF;
+    --accent: #2F5BFF;
+    --accent-soft: #E6ECFF;
+    --f-ui: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --f-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    color-scheme: light;
+  }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--f-ui); overflow: hidden; }
+  #stage {
+    position: fixed; inset: 0;
+    background: radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0) 0 0 / 22px 22px, var(--bg);
+  }
+  #stage canvas { display: block; }
+
+  .hud {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 2;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
+    pointer-events: none;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .brand b { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand span { font: 500 11px var(--f-mono); color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+  .steps { display: flex; gap: 6px; }
+  .step {
+    font: 500 11.5px var(--f-mono); letter-spacing: 0.02em;
+    padding: 6px 10px; border-radius: 999px;
+    background: rgba(255,255,255,0.75); border: 1px solid var(--line); color: var(--muted);
+    transition: background .25s, color .25s, border-color .25s;
+  }
+  .step.done { color: var(--ink); }
+  .step.on { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+
+  .dock {
+    position: fixed; left: 50%; transform: translateX(-50%); z-index: 2;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    width: max-content; max-width: calc(100% - 32px);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+    padding: 6px 6px 6px 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 10px 30px -12px rgba(18,22,29,0.22), 0 1px 2px rgba(18,22,29,0.06);
+  }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--muted); min-width: 0; margin-right: 6px; }
+  .status i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+  .dock.busy .status i { animation: pulse 0.9s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.25; transform: scale(0.7); } }
+  .status span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+  button {
+    font: 600 13.5px var(--f-ui); border-radius: 10px; padding: 9px 14px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: background .15s, transform .1s, opacity .2s;
+  }
+  button:hover { background: #F5F6F9; }
+  button:active { transform: scale(0.97); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: #2349E0; }
+  button:disabled { opacity: 0.45; cursor: default; transform: none; }
+  button svg { width: 15px; height: 15px; }
+  kbd { font: 500 10.5px var(--f-mono); opacity: 0.7; }
+  @media (max-width: 560px) { kbd, .brand span { display: none; } .status { flex-basis: 100%; justify-content: center; margin: 2px 0 0; } .dock { padding: 6px; } }
+</style>
+
+<div id="stage"></div>
+
+<header class="hud">
+  <div class="brand"><b>Mention Scout</b><span>X + Reddit · last 7 days</span></div>
+  <div class="steps" aria-label="Progress">
+    <div class="step" id="s1">1 Collect</div>
+    <div class="step" id="s2">2 Match</div>
+    <div class="step" id="s3">3 Enrich</div>
+  </div>
+</header>
+
+<div class="dock" id="dock">
+  <div class="status" role="status" aria-live="polite"><i></i><span id="status">Loading…</span></div>
+  <button id="reset" type="button" title="Restart (R)">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8a5.5 5.5 0 1 0 1.7-4"/><path d="M2.5 2.5v3h3"/></svg>
+    Reset
+  </button>
+  <button id="next" type="button" class="primary" title="Next step (→)" disabled>
+    <span id="nextLabel">Next</span>
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+  </button>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+/* ---------- data ---------- */
+const POSTS = [
+  { kind:'x', name:'Priya Raman', handle:'priyabuilds', time:'2h', text:"Third time this month a client 'forgot' to pay an invoice. I'm a designer, not a debt collector.", replies:14, reposts:6, likes:212 },
+  { kind:'x', name:'Marcus Bell', handle:'marcusbell_', time:'5h', text:'Our support inbox hit 400 unread this morning. We are 3 people. Please send coffee.', replies:31, reposts:9, likes:388 },
+  { kind:'x', name:'Hannah Cho', handle:'hannahcho', time:'1d', text:"Is there a tool that doesn't need a PhD to set up? Asking for my entire ops team.", replies:22, reposts:3, likes:97 },
+  { kind:'x', name:'Dev Patel', handle:'devpatel_ops', time:'3h', text:'Spent my entire Sunday copying order data between Shopify and our spreadsheet. Again. There has to be a better way than this.', replies:48, reposts:17, likes:641 },
+  { kind:'x', name:'Lena Fischer', handle:'lenafischer', time:'6h', text:"Hot take: if your onboarding needs a 45 minute call, your onboarding is broken. (Yes, I'm talking about us.)", replies:19, reposts:24, likes:530 },
+  { kind:'x', name:'Tom Okoye', handle:'tomokoye', time:'8h', text:"We lost a 20k deal because the follow-up email sat in someone's drafts for two weeks. Cool cool cool.", replies:12, reposts:4, likes:176 },
+  { kind:'x', name:'Sara Lindqvist', handle:'saralind', time:'1d', text:'Every Monday: export CSV, clean CSV, paste CSV, pray. Repeat until retirement.', replies:9, reposts:11, likes:302 },
+  { kind:'x', name:'Jamie Ortiz', handle:'jamieortiz', time:'4h', text:"Our 'CRM' is a shared Google Sheet with 14 tabs and one person who understands it. She's on vacation.", replies:27, reposts:15, likes:455 },
+  { kind:'x', name:'Noah Brooks', handle:'noahbrooks', time:'9h', text:"Customers keep asking where their order is and honestly? I also don't know.", replies:6, reposts:2, likes:84 },
+  { kind:'x', name:'Aisha Bello', handle:'aishabello', time:'2d', text:'Scheduling 6 contractors across 3 sites over WhatsApp should count as cardio.', replies:11, reposts:5, likes:143 },
+  { kind:'x', name:'Chris Wu', handle:'chriswu', time:'7h', text:'Renewed a tool we stopped using 8 months ago. Nobody noticed until a card got declined somewhere else.', replies:8, reposts:3, likes:120 },
+  { kind:'x', name:'Maya Okafor', handle:'mayaokafor', time:'1h', text:"Our month-end close takes 9 days because half our invoices live in someone's inbox. The finance team is running on fumes.", replies:36, reposts:12, likes:497 },
+  { kind:'x', name:'Ben Harris', handle:'benharris', time:'3h', text:'Tried to get one number out of our reporting stack. It gave me three different answers.', replies:15, reposts:7, likes:231 },
+  { kind:'x', name:'Olivia Grant', handle:'oliviagrant', time:'1d', text:'Week 3 of manually tagging every support ticket. My wrists have opinions.', replies:5, reposts:1, likes:66 },
+  { kind:'x', name:'Leo Martins', handle:'leomartins', time:'5h', text:'Does anyone else spend more time updating the status doc than doing the work in it?', replies:40, reposts:8, likes:367 },
+  { kind:'r', sub:'smallbusiness', user:'coastal_candles', time:'6h', title:'How do you all keep track of who owes you money?', text:"About 40 wholesale accounts and I'm tracking payments in my notes app. I know. I know.", ups:214, comments:87 },
+  { kind:'r', sub:'sysadmin', user:'patchtuesday_survivor', time:'1d', title:'Is it normal for onboarding a new hire to take 2 full days of setup?', text:'Accounts, laptops, permissions, 11 different tools. Feels like there is a better way.', ups:532, comments:203 },
+  { kind:'r', sub:'ecommerce', user:'thrift_flip_co', time:'4h', title:'Inventory counts never match between our site and the warehouse', text:'We oversold 30 units last week. Customers were not happy.', ups:96, comments:41 },
+  { kind:'r', sub:'startups', user:'foundermode_tired', time:'9h', title:'At what point did you stop doing support yourself?', text:"I answer about 80 tickets a day and haven't written code in a month.", ups:341, comments:156 },
+  { kind:'r', sub:'Accounting', user:'debits_and_doubts', time:'2d', title:'Clients send receipts as phone photos at 11pm. Every. Single. Time.', text:'Matching them to transactions takes me longer than the actual bookkeeping.', ups:788, comments:264 },
+  { kind:'r', sub:'projectmanagement', user:'gantt_or_bust', time:'7h', title:'Our team uses 4 different tools to track the same project', text:"Jira, Asana, a spreadsheet, and Dave's memory. Dave is the most reliable.", ups:173, comments:58 },
+  { kind:'r', sub:'freelance', user:'pixel_and_pine', time:'3h', title:'Lost a client because I double-booked two calls', text:'My calendar, their calendar, and my booking link all disagreed.', ups:64, comments:29 },
+  { kind:'r', sub:'SaaS', user:'rachel_ships', time:'2h', title:"We're losing trial users and I can't tell where they drop off", text:'Signups are fine. Activation is a mystery. Our analytics setup is three half-configured tools.', ups:289, comments:112 },
+  { kind:'r', sub:'restaurateur', user:'two_burners', time:'1d', title:'Staff scheduling is eating my whole Sunday', text:'Shift swaps over text, no-shows, and I find out at 6am.', ups:121, comments:47 },
+  { kind:'r', sub:'marketing', user:'ctr_or_die', time:'5h', title:'Reporting takes me longer than the campaigns do', text:'Pulling numbers from 6 ad platforms into slides every single week.', ups:402, comments:133 },
+  { kind:'r', sub:'msp', user:'ticket_goblin', time:'8h', title:'Clients email, call, and text about the same issue', text:'Three tickets, one problem, zero context.', ups:57, comments:22 },
+  { kind:'r', sub:'Entrepreneur', user:'bootstrapped_bea', time:'1d', title:'Churn is creeping up and I only find out at renewal', text:'Would love an early warning. Right now my early warning is the cancellation email.', ups:233, comments:91 },
+  { kind:'r', sub:'realestate', user:'listing_lucas', time:'6h', title:'Leads come in from 5 portals and half go cold before I see them', text:"By the time I call back they've signed with someone else.", ups:88, comments:36 },
+  { kind:'r', sub:'humanresources', user:'hr_on_fire', time:'2d', title:'Still chasing managers for performance reviews in week 6', text:'Reminder emails are not working. Neither am I, apparently.', ups:146, comments:52 },
+  { kind:'r', sub:'shopify', user:'glow_goods', time:'3h', title:'Returns are a nightmare to process manually', text:'Print label, email customer, update sheet, refund, restock. 40 times a week.', ups:198, comments:77 },
+];
+
+// The three best fits, in rank order, with the profiles "found" for each.
+const PICKS = [
+  { idx:3, name:'Dev Patel', fit:'96% fit · Manual data entry', profiles:[
+    ['linkedin','Dev Patel','Head of Ops, Kettle & Crumb'],
+    ['instagram','@kettleandcrumb','18.4k followers · bakery'],
+    ['web','kettleandcrumb.com','Shopify store · 3 locations'],
+    ['reddit','u/devops_baker','Active in r/shopify'],
+    ['youtube','Kettle & Crumb','2.1k subscribers'],
+    ['facebook','Kettle & Crumb Bakery','Leeds, UK · 4.8 rating'],
+  ]},
+  { idx:11, name:'Maya Okafor', fit:'93% fit · Invoice backlog', profiles:[
+    ['linkedin','Maya Okafor','Finance Director, Northwind Freight'],
+    ['substack','The Close','Newsletter · 1.2k readers'],
+    ['web','northwindfreight.com','Logistics · ~120 staff'],
+    ['threads','@mayaokafor','Posts weekly about month-end'],
+    ['bluesky','@maya.bsky.social','Finance ops threads'],
+    ['podcast','Finance Ops Weekly','Guest · Ep. 84'],
+  ]},
+  { idx:22, name:'Rachel Kim', fit:'91% fit · Activation analytics', profiles:[
+    ['x','@rachelkim_ships','3.4k followers · founder'],
+    ['linkedin','Rachel Kim','Co-founder, Loopwise'],
+    ['github','rkim','42 repos · TypeScript'],
+    ['producthunt','Loopwise','Launched · #4 of the day'],
+    ['web','loopwise.io','B2B SaaS · seed stage'],
+    ['indiehackers','rachelk','Shares MRR updates'],
+  ]},
+];
+
+const PLATFORMS = {
+  x:           { label:'X',             color:'#0F1419', glyph:'X' },
+  linkedin:    { label:'LinkedIn',      color:'#0A66C2', glyph:'in' },
+  instagram:   { label:'Instagram',     color:'#D62976', glyph:'IG' },
+  web:         { label:'Website',       color:'#4B5563', glyph:'www' },
+  reddit:      { label:'Reddit',        color:'#FF4500', glyph:'r/' },
+  youtube:     { label:'YouTube',       color:'#FF0000', glyph:'▶' },
+  facebook:    { label:'Facebook',      color:'#1877F2', glyph:'f' },
+  substack:    { label:'Substack',      color:'#FF6719', glyph:'S' },
+  threads:     { label:'Threads',       color:'#101010', glyph:'@' },
+  bluesky:     { label:'Bluesky',       color:'#1185FE', glyph:'b' },
+  podcast:     { label:'Podcast',       color:'#8A3FFC', glyph:'))' },
+  github:      { label:'GitHub',        color:'#1F2328', glyph:'GH' },
+  producthunt: { label:'Product Hunt',  color:'#DA552F', glyph:'P' },
+  indiehackers:{ label:'Indie Hackers', color:'#0E2439', glyph:'IH' },
+};
+
+/* ---------- constants ---------- */
+const INK = '#12161D', MUTED = '#5C6574', ACCENT = '#2F5BFF';
+const FONT = '"Instrument Sans", system-ui, -apple-system, sans-serif';
+const MONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
+const TS = 2;                         // canvas supersampling
+const CW = 420, CH = 260, CM = 24;    // card px + shadow margin
+const CARD_W = 3.2, U = CARD_W / CW;  // world units per card px
+const CARD_H = CH * U;
+const NW = 250, NH = 78, NM = 14;     // profile node px
+const PERIOD = 6000;                  // hover loop length (ms), every motion is a whole multiple of it
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const HOVER = reduced ? 0.3 : 1;
+
+/* ---------- canvas drawing ---------- */
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w * TS; c.height = h * TS;
+  const g = c.getContext('2d'); g.scale(TS, TS);
+  return [c, g];
+}
+function wrap(g, text, x, y, maxW, lh, maxLines) {
+  const words = text.split(' '); let line = '', lines = [];
+  for (const w of words) {
+    const t = line ? line + ' ' + w : w;
+    if (g.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t;
+  }
+  if (line) lines.push(line);
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    let last = lines[maxLines - 1];
+    while (g.measureText(last + '…').width > maxW) last = last.slice(0, -1);
+    lines[maxLines - 1] = last.trimEnd() + '…';
+  }
+  lines.forEach((l, i) => g.fillText(l, x, y + i * lh));
+  return y + (lines.length - 1) * lh;
+}
+function fit(g, text, maxW) {
+  if (g.measureText(text).width <= maxW) return text;
+  while (text && g.measureText(text + '…').width > maxW) text = text.slice(0, -1);
+  return text + '…';
+}
+function hueOf(s) { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; }
+function avatar(g, x, y, r, name) {
+  const h = hueOf(name);
+  g.fillStyle = `hsl(${h} 60% 89%)`; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  g.fillStyle = `hsl(${h} 45% 30%)`; g.font = `600 ${r * 0.78}px ${FONT}`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(), x, y + 1);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+}
+
+function drawCard(p) {
+  const [c, g] = makeCanvas(CW + CM * 2, CH + CM * 2);
+  g.translate(CM, CM);
+  g.save();
+  g.shadowColor = 'rgba(22,32,58,0.13)'; g.shadowBlur = 18; g.shadowOffsetY = 6;
+  g.fillStyle = '#fff'; g.beginPath(); g.roundRect(0, 0, CW, CH, 16); g.fill();
+  g.restore();
+  g.strokeStyle = '#E4E7ED'; g.lineWidth = 1; g.beginPath(); g.roundRect(0.5, 0.5, CW - 1, CH - 1, 16); g.stroke();
+
+  if (p.kind === 'x') {
+    avatar(g, 42, 42, 21, p.name);
+    g.fillStyle = INK; g.font = `600 16px ${FONT}`; g.fillText(p.name, 72, 38);
+    g.fillStyle = MUTED; g.font = `400 14px ${FONT}`; g.fillText(`@${p.handle} · ${p.time}`, 72, 57);
+    // X mark
+    g.fillStyle = '#0F1419'; g.beginPath(); g.roundRect(374, 22, 26, 26, 7); g.fill();
+    g.fillStyle = '#fff'; g.font = `700 15px ${FONT}`; g.textAlign = 'center'; g.fillText('X', 387, 40); g.textAlign = 'left';
+    g.fillStyle = INK; g.font = `400 16.5px ${FONT}`;
+    wrap(g, p.text, 22, 96, 378, 23.5, 5);
+    g.fillStyle = MUTED; g.font = `500 13px ${FONT}`;
+    const stats = [[p.replies, 'replies'], [p.reposts, 'reposts'], [p.likes, 'likes']];
+    let x = 22;
+    for (const [n, l] of stats) {
+      g.fillStyle = INK; g.fillText(String(n), x, 238); x += g.measureText(String(n)).width + 4;
+      g.fillStyle = MUTED; g.fillText(l, x, 238); x += g.measureText(l).width + 18;
+    }
+  } else {
+    g.fillStyle = '#FF4500'; g.beginPath(); g.arc(36, 36, 15, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff'; g.font = `700 12px ${FONT}`; g.textAlign = 'center'; g.fillText('r/', 36, 40); g.textAlign = 'left';
+    g.fillStyle = INK; g.font = `700 13.5px ${FONT}`; g.fillText('r/' + p.sub, 60, 32);
+    g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText(`u/${p.user} · ${p.time}`, 60, 50);
+    g.fillStyle = '#FF4500'; g.font = `700 14px ${FONT}`; g.textAlign = 'right'; g.fillText('reddit', 398, 40); g.textAlign = 'left';
+    g.fillStyle = INK; g.font = `700 17.5px ${FONT}`;
+    const ty = wrap(g, p.title, 22, 92, 376, 23, 2);
+    g.fillStyle = MUTED; g.font = `400 14.5px ${FONT}`;
+    wrap(g, p.text, 22, ty + 27, 376, 20.5, 3);
+    // vote + comment pills
+    g.fillStyle = '#F2F3F5';
+    g.beginPath(); g.roundRect(20, 216, 88, 28, 14); g.fill();
+    g.font = `700 13px ${FONT}`; g.fillStyle = '#FF4500'; g.fillText('▲', 32, 235);
+    g.fillStyle = INK; g.fillText(String(p.ups), 50, 235);
+    g.fillStyle = MUTED; g.fillText('▼', 50 + g.measureText(String(p.ups)).width + 8, 235);
+    const ct = `${p.comments} comments`; g.font = `600 13px ${FONT}`;
+    const cw = g.measureText(ct).width + 28;
+    g.fillStyle = '#F2F3F5'; g.beginPath(); g.roundRect(116, 216, cw, 28, 14); g.fill();
+    g.fillStyle = MUTED; g.fillText(ct, 130, 235);
+  }
+  return c;
+}
+
+function drawGlow() {
+  const [c, g] = makeCanvas(CW + CM * 2, CH + CM * 2);
+  g.translate(CM, CM);
+  g.shadowColor = 'rgba(47,91,255,0.55)'; g.shadowBlur = 16;
+  g.strokeStyle = ACCENT; g.lineWidth = 2.5;
+  g.beginPath(); g.roundRect(0, 0, CW, CH, 16); g.stroke();
+  return c;
+}
+
+function drawBadge(text) {
+  const [, m] = makeCanvas(1, 1); m.font = `600 13px ${FONT}`;
+  const w = Math.ceil(m.measureText(text).width) + 30, h = 30;
+  const [c, g] = makeCanvas(w, h);
+  g.fillStyle = ACCENT; g.beginPath(); g.roundRect(0, 0, w, h, 15); g.fill();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(13, 15, 3, 0, Math.PI * 2); g.fill();
+  g.font = `600 13px ${FONT}`; g.fillText(text, 22, 19.5);
+  return { canvas: c, w, h };
+}
+
+function drawNode(platform, handle, detail) {
+  const P = PLATFORMS[platform];
+  const [c, g] = makeCanvas(NW + NM * 2, NH + NM * 2);
+  g.translate(NM, NM);
+  g.save();
+  g.shadowColor = 'rgba(22,32,58,0.14)'; g.shadowBlur = 12; g.shadowOffsetY = 4;
+  g.fillStyle = '#fff'; g.beginPath(); g.roundRect(0, 0, NW, NH, 12); g.fill();
+  g.restore();
+  g.strokeStyle = '#E4E7ED'; g.lineWidth = 1; g.beginPath(); g.roundRect(0.5, 0.5, NW - 1, NH - 1, 12); g.stroke();
+  g.fillStyle = P.color; g.beginPath(); g.roundRect(14, 17, 44, 44, 11); g.fill();
+  g.fillStyle = '#fff'; g.font = `700 ${P.glyph.length > 2 ? 13 : 17}px ${FONT}`;
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(P.glyph, 36, 40); g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.fillStyle = MUTED; g.font = `500 10.5px ${MONO}`; g.fillText(P.label.toUpperCase(), 70, 28);
+  g.fillStyle = '#16A34A'; g.beginPath(); g.arc(NW - 16, 24, 4, 0, Math.PI * 2); g.fill();
+  g.fillStyle = INK; g.font = `600 15px ${FONT}`; g.fillText(fit(g, handle, 166), 70, 48);
+  g.fillStyle = MUTED; g.font = `400 12px ${FONT}`; g.fillText(fit(g, detail, 166), 70, 65);
+  return c;
+}
+
+/* ---------- three setup ---------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x000000, 0);
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.1, 400);
+const ANISO = renderer.capabilities.getMaxAnisotropy();
+
+function tex(canvas) {
+  const t = new THREE.CanvasTexture(canvas);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO;
+  return t;
+}
+function mat(map) {
+  return new THREE.MeshBasicMaterial({ map, transparent: true, depthTest: false, depthWrite: false });
+}
+
+/* ---------- tweens ---------- */
+const E = {
+  outCubic: t => 1 - Math.pow(1 - t, 3),
+  outExpo: t => t >= 1 ? 1 : 1 - Math.pow(2, -10 * t),
+  inOutCubic: t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+  outBack: t => { const s = 1.5; return 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2); },
+  softBack: t => { const s = 0.9; return 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2); },
+};
+let tweens = [];
+function to(obj, props, dur, ease = E.outCubic, delay = 0) {
+  return new Promise(res => {
+    props = { ...props };
+    tweens = tweens.filter(o => {
+      if (o.obj !== obj) return true;
+      for (const k in props) delete o.props[k];
+      if (Object.keys(o.props).length) return true;
+      o.res(); return false;
+    });
+    tweens.push({ obj, props, dur, delay, ease, t0: performance.now(), from: null, res });
+  });
+}
+function updateTweens(now) {
+  tweens = tweens.filter(tw => {
+    const e = now - tw.t0 - tw.delay;
+    if (e < 0) return true;
+    if (!tw.from) { tw.from = {}; for (const k in tw.props) tw.from[k] = tw.obj[k]; }
+    const p = Math.min(1, e / tw.dur), k = tw.ease(p);
+    for (const key in tw.props) tw.obj[key] = tw.from[key] + (tw.props[key] - tw.from[key]) * k;
+    if (p >= 1) { tw.res(); return false; }
+    return true;
+  });
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- layout ---------- */
+const GX = 0.42, GY = 0.4;
+let cols = 6, rows = 5;
+function computeGrid() {
+  const a = innerWidth / innerHeight;
+  cols = a >= 1.25 ? 6 : a >= 0.8 ? 5 : 3;
+  rows = Math.ceil(POSTS.length / cols);
+}
+const gridW = () => cols * CARD_W + (cols - 1) * GX;
+const gridH = () => rows * CARD_H + (rows - 1) * GY;
+const portrait = () => innerWidth / innerHeight < 0.9;
+
+function fitDist(w, h) {
+  const vf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const hudSpace = innerWidth < 560 ? 210 : 170;
+  const uh = Math.max(0.45, (innerHeight - hudSpace) / innerHeight);
+  const uw = (innerWidth - 32) / innerWidth;
+  return Math.max((h / 2) / (vf * uh), (w / 2) / (vf * camera.aspect * uw));
+}
+const frame = (x, y, w, h) => ({ x, y, z: fitDist(w, h) });
+
+// Step 3 clusters: card scaled up, six profiles fanned around it
+const S3 = 1.3, NODE_S = 1.2;
+const NODE_W = (NW + NM * 2) * U * NODE_S;
+const nodeSpots = () => {
+  const hw = CARD_W * S3 / 2, hh = CARD_H * S3 / 2, nw = NW * U * NODE_S, nh = NH * U * NODE_S;
+  const sx = hw + 0.45 + nw / 2, tx = nw / 2 + 0.55, ty = hh + 0.45 + nh / 2;
+  return [[-tx, ty], [tx, ty], [sx, 0], [tx, -ty], [-tx, -ty], [-sx, 0]];
+};
+const CLUSTER_W = () => CARD_W * S3 + 2 * (0.45 + NW * U * NODE_S) + 0.4;
+const CLUSTER_H = () => CARD_H * S3 + 2 * (0.45 + NH * U * NODE_S) + 0.4;
+function clusterCenter(i) {
+  const k = i - 1;
+  return portrait() ? [0, -k * (CLUSTER_H() + 0.6)] : [k * (CLUSTER_W() + 0.6), 0];
+}
+function viewFrame(v) {
+  if (v.type === 'cluster') { const [x, y] = clusterCenter(v.i); return frame(x, y, CLUSTER_W() + 0.6, CLUSTER_H() + 0.6); }
+  if (v.type === 'clusters') {
+    return portrait() ? frame(0, 0, CLUSTER_W(), CLUSTER_H() * 3 + 1.8) : frame(0, 0, CLUSTER_W() * 3 + 1.8, CLUSTER_H());
+  }
+  return frame(0, 0, gridW() + 0.6, gridH() + 0.6);
+}
+
+/* ---------- build scene ---------- */
+const cardGeo = new THREE.PlaneGeometry((CW + CM * 2) * U, (CH + CM * 2) * U);
+const nodeGeo = new THREE.PlaneGeometry((NW + NM * 2) * U, (NH + NM * 2) * U);
+const unitGeo = new THREE.PlaneGeometry(1, 1);
+let glowTex, cards = [], nodes = [];
+const badgeCache = new Map();
+function badgeTex(text) {
+  if (!badgeCache.has(text)) { const b = drawBadge(text); badgeCache.set(text, { t: tex(b.canvas), w: b.w * U, h: b.h * U }); }
+  return badgeCache.get(text);
+}
+
+function buildCards() {
+  glowTex = tex(drawGlow());
+  pulseMat.map = glowTex; pulseMat.needsUpdate = true;
+  POSTS.forEach((p, i) => {
+    const m = mat(tex(drawCard(p)));
+    const mesh = new THREE.Mesh(cardGeo, m);
+    const glowMat = mat(glowTex); glowMat.opacity = 0;
+    const glow = new THREE.Mesh(cardGeo, glowMat);
+    const badgeMat = mat(null);
+    const badge = new THREE.Mesh(unitGeo, badgeMat);
+    mesh.add(glow, badge);
+    scene.add(mesh);
+    const c = {
+      i, p, mesh, mat: m, glow, glowMat, badge, badgeMat, home: null, bw: 0, bh: 0,
+      st: { x: 0, y: 0, z: 0, s: 1, rz: 0, op: 0, amp: 1, glow: 0, badge: 0, ph: ((i * 0.6180339) % 1) * Math.PI * 2 },
+    };
+    c.setBadge = text => {
+      const b = badgeTex(text);
+      badgeMat.map = b.t; badgeMat.needsUpdate = true; c.bw = b.w; c.bh = b.h;
+      badge.position.set(-CARD_W / 2 + b.w / 2, CARD_H / 2 + b.h / 2 + 0.07, 0);
+    };
+    c.setFront = on => { mesh.renderOrder = on ? 20 : 0; glow.renderOrder = on ? 21 : 0; badge.renderOrder = on ? 22 : 0; };
+    cards.push(c);
+  });
+  PICKS.forEach(pk => cards[pk.idx].setBadge(pk.fit));
+}
+
+function layoutHomes() {
+  computeGrid();
+  const half = Math.ceil(POSTS.length / 2);
+  cards.forEach((c, i) => {
+    const slot = i < half ? i * 2 : (i - half) * 2 + 1; // interleave X and Reddit
+    const col = slot % cols, row = Math.floor(slot / cols);
+    const inRow = row === rows - 1 ? POSTS.length - row * cols : cols; // centre a short last row
+    c.home = {
+      x: (col - (inRow - 1) / 2) * (CARD_W + GX),
+      y: ((rows - 1) / 2 - row) * (CARD_H + GY),
+      z: Math.sin(i * 12.9898) * 0.35,
+    };
+  });
+}
+
+// scan pulse that rings the active card
+const pulseMat = mat(null); pulseMat.opacity = 0;
+const pulse = new THREE.Mesh(cardGeo, pulseMat); pulse.renderOrder = 19; scene.add(pulse);
+const pulseSt = { s: 1, op: 0, card: null };
+
+function addNode(card, spot, profile) {
+  const m = mat(tex(drawNode(...profile)));
+  const mesh = new THREE.Mesh(nodeGeo, m); mesh.renderOrder = 20;
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  const lineMat = new THREE.LineBasicMaterial({ color: 0x8C9AB5, transparent: true, depthTest: false, opacity: 0 });
+  const line = new THREE.Line(lineGeo, lineMat); line.renderOrder = 15; line.frustumCulled = false;
+  scene.add(mesh, line);
+  const n = { card, mesh, mat: m, line, lineMat, st: { x: spot[0], y: spot[1], z: 0, s: 0, op: 0, lp: 0, lop: 0, ph: Math.random() * Math.PI * 2 } };
+  nodes.push(n);
+  return n;
+}
+function clearNodes() {
+  for (const n of nodes) {
+    scene.remove(n.mesh, n.line);
+    n.mat.map.dispose(); n.mat.dispose(); n.line.geometry.dispose(); n.lineMat.dispose();
+  }
+  nodes = [];
+}
+
+/* ---------- render loop ---------- */
+const cam = { x: 0, y: 0, z: 30 };
+let view = { type: 'overview' };
+const TAU = Math.PI * 2;
+const tmp = new THREE.Vector3();
+
+function tick(now) {
+  updateTweens(now);
+  const L = (now % PERIOD) / PERIOD * TAU;
+
+  for (const c of cards) {
+    const s = c.st, a = s.amp * HOVER;
+    c.mesh.visible = s.op > 0.002;
+    c.mesh.position.set(s.x, s.y + Math.sin(L + s.ph) * 0.11 * a, s.z);
+    c.mesh.rotation.set(Math.sin(L + s.ph + 1.3) * 0.05 * a, Math.cos(L + s.ph * 1.7) * 0.065 * a, s.rz + Math.sin(L + s.ph + 2.1) * 0.012 * a);
+    c.mesh.scale.setScalar(s.s);
+    c.mat.opacity = s.op;
+    c.glowMat.opacity = s.glow * s.op;
+    c.glow.visible = s.glow > 0.002;
+    c.badge.visible = s.badge > 0.002;
+    c.badge.scale.set(c.bw * Math.max(s.badge, 0.001), c.bh * Math.max(s.badge, 0.001), 1);
+    c.badgeMat.opacity = Math.min(1, s.badge) * s.op;
+  }
+
+  for (const n of nodes) {
+    const s = n.st, cp = n.card.mesh.position;
+    n.mesh.visible = s.s > 0.002;
+    n.mesh.position.set(s.x, s.y + Math.sin(L + s.ph) * 0.07 * HOVER, s.z);
+    n.mesh.rotation.set(0, 0, Math.sin(L + s.ph + 0.8) * 0.015 * HOVER);
+    n.mesh.scale.setScalar(Math.max(s.s, 0.001));
+    n.mat.opacity = s.op;
+    const arr = n.line.geometry.attributes.position.array;
+    tmp.copy(n.mesh.position).sub(cp).multiplyScalar(s.lp).add(cp);
+    arr[0] = cp.x; arr[1] = cp.y; arr[2] = cp.z; arr[3] = tmp.x; arr[4] = tmp.y; arr[5] = tmp.z;
+    n.line.geometry.attributes.position.needsUpdate = true;
+    n.lineMat.opacity = s.lop;
+  }
+
+  if (pulseSt.card) {
+    pulse.position.copy(pulseSt.card.mesh.position);
+    pulse.rotation.copy(pulseSt.card.mesh.rotation);
+    pulse.scale.setScalar(pulseSt.card.st.s * pulseSt.s);
+  }
+  pulse.visible = pulseSt.op > 0.002;
+  pulseMat.opacity = pulseSt.op;
+
+  camera.position.set(cam.x, cam.y, cam.z);
+  camera.lookAt(cam.x, cam.y, 0);
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+
+/* ---------- UI ---------- */
+const $ = id => document.getElementById(id);
+const dock = $('dock'), statusEl = $('status'), nextBtn = $('next'), nextLabel = $('nextLabel');
+const state = { step: 0, busy: false };
+let runId = 0;
+const NEXT_LABEL = { 0: 'Highlight best fits', 1: 'Highlight best fits', 2: 'Crawl their profiles', 3: 'Done' };
+
+function status(t) { statusEl.textContent = t; }
+function setBusy(b) {
+  state.busy = b; dock.classList.toggle('busy', b);
+  nextBtn.disabled = b || state.step >= 3;
+  nextLabel.textContent = NEXT_LABEL[state.step];
+}
+function setStep(n) {
+  [1, 2, 3].forEach(i => {
+    $('s' + i).classList.toggle('on', i === n);
+    $('s' + i).classList.toggle('done', i < n);
+  });
+}
+
+/* ---------- steps ---------- */
+async function step1(id) {
+  setStep(1); setBusy(true); status('Scanning X and Reddit…');
+  let found = 0;
+  const order = cards.map((_, i) => i).sort(() => Math.random() - 0.5);
+  await Promise.all(order.map((i, k) => {
+    const c = cards[i], s = c.st, h = c.home;
+    Object.assign(s, {
+      x: h.x * 1.6 + (Math.random() - 0.5) * 6, y: h.y - 16 - Math.random() * 6, z: -10,
+      rz: (Math.random() - 0.5) * 1.4, s: 0.8, op: 0, amp: 1, glow: 0, badge: 0,
+    });
+    const d = 120 + k * 32;
+    to(s, { op: 1 }, 380, E.outCubic, d);
+    return to(s, { x: h.x, y: h.y, z: h.z, rz: 0, s: 1 }, 1000, E.outExpo, d)
+      .then(() => { if (id === runId) status(`Scanning X and Reddit… ${++found} mentions`); });
+  }));
+  if (id !== runId) return;
+  state.step = 1;
+  status(`${POSTS.length} mentions of problems we can solve`);
+  setBusy(false);
+}
+
+async function step2(id) {
+  setStep(2); setBusy(true); status('Scoring intent and fit…');
+  const picks = PICKS.map(p => cards[p.idx]);
+  const others = cards.filter(c => !picks.includes(c));
+
+  // pull the picks toward the camera in a row (column when portrait)
+  const D = cam.z, vf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const gap = 0.6, port = portrait();
+  const rowW = port ? CARD_W : 3 * CARD_W + 2 * gap;
+  const rowH = port ? 3 * CARD_H + 2 * (gap + 0.3) : CARD_H + 0.4;
+  const z2 = Math.max(-2, Math.min(D - 4, D - Math.max(rowW / (2 * 0.8 * vf * camera.aspect), rowH / (2 * 0.68 * vf))));
+
+  others.forEach((c, k) => to(c.st, { op: 0.32, z: c.home.z - 1.5, s: 0.96 }, 650, E.outCubic, (k % 10) * 12));
+  await sleep(160); if (id !== runId) return;
+  picks.forEach((c, k) => {
+    c.setFront(true);
+    const off = k - 1;
+    const x = port ? 0 : off * (CARD_W + gap);
+    const y = port ? -off * (CARD_H + gap + 0.3) : -0.1;
+    const d = k * 110;
+    to(c.st, { x, y, z: z2, rz: 0, s: 1, amp: 0.45 }, 850, E.softBack, d);
+    to(c.st, { glow: 1 }, 420, E.outCubic, d + 380);
+    to(c.st, { badge: 1 }, 480, E.outBack, d + 480);
+  });
+  await sleep(1150); if (id !== runId) return;
+  state.step = 2;
+  status('3 best fits: high intent, clear problem');
+  setBusy(false);
+}
+
+async function step3(id) {
+  setStep(3); setBusy(true); status('Resolving identities…');
+  const picks = PICKS.map(p => cards[p.idx]);
+  cards.filter(c => !picks.includes(c)).forEach(c => to(c.st, { op: 0.12, z: c.home.z - 6 }, 800, E.outCubic));
+  picks.forEach((c, k) => {
+    const [x, y] = clusterCenter(k);
+    to(c.st, { x, y, z: 0, s: S3, amp: 0.3, glow: 0.6 }, 900, E.inOutCubic, k * 60);
+  });
+  view = { type: 'cluster', i: 0 };
+  await to(cam, viewFrame(view), 950, E.inOutCubic);
+  if (id !== runId) return;
+
+  let total = 0;
+  for (let i = 0; i < PICKS.length; i++) {
+    const pk = PICKS[i], card = picks[i];
+    if (i > 0) {
+      view = { type: 'cluster', i };
+      picks.forEach((c, k) => to(c.st, { op: k === i ? 1 : 0.45 }, 400));
+      nodes.forEach(n => { to(n.st, { op: 0.45 }, 400); to(n.st, { lop: 0.2 }, 400); });
+      await to(cam, viewFrame(view), 750, E.inOutCubic);
+      if (id !== runId) return;
+    } else {
+      picks.forEach((c, k) => to(c.st, { op: k === 0 ? 1 : 0.45 }, 400));
+    }
+    to(card.st, { glow: 1 }, 250);
+    const [cx, cy] = clusterCenter(i);
+    const spots = nodeSpots();
+    for (let j = 0; j < pk.profiles.length; j++) {
+      const prof = pk.profiles[j];
+      status(`${pk.name} · checking ${PLATFORMS[prof[0]].label}…`);
+      pulseSt.card = card; pulseSt.s = 1; pulseSt.op = 0.85;
+      to(pulseSt, { s: 1.22, op: 0 }, 480, E.outCubic);
+      await sleep(150); if (id !== runId) return;
+      const n = addNode(card, [cx + spots[j][0], cy + spots[j][1]], prof);
+      n.st.lop = 0.9;
+      to(n.st, { lp: 1 }, 230, E.outCubic);
+      to(n.st, { s: NODE_S }, 420, E.outBack, 170);
+      to(n.st, { op: 1 }, 200, E.outCubic, 170);
+      total++;
+      status(`${pk.name} · found ${PLATFORMS[prof[0]].label}`);
+      await sleep(310); if (id !== runId) return;
+    }
+    card.setBadge(`${pk.fit.split(' · ')[0]} · ${pk.profiles.length} profiles linked`);
+    card.st.badge = 0.6; to(card.st, { badge: 1, glow: 0.6 }, 380, E.outBack);
+    status(`${pk.name} · ${pk.profiles.length} profiles linked`);
+    await sleep(420); if (id !== runId) return;
+  }
+
+  view = { type: 'clusters' };
+  picks.forEach(c => to(c.st, { op: 1 }, 500));
+  nodes.forEach(n => { to(n.st, { op: 1 }, 500); to(n.st, { lop: 0.9 }, 500); });
+  await to(cam, viewFrame(view), 1000, E.inOutCubic);
+  if (id !== runId) return;
+  state.step = 3;
+  status(`3 prospects · ${total} profiles linked`);
+  setBusy(false);
+}
+
+function next() {
+  if (state.busy) return;
+  if (state.step === 1) step2(runId);
+  else if (state.step === 2) step3(runId);
+}
+
+function reset() {
+  const id = ++runId;
+  tweens.forEach(t => t.res()); tweens = [];
+  clearNodes();
+  pulseSt.op = 0; pulseSt.card = null;
+  layoutHomes();
+  cards.forEach(c => { c.setFront(false); c.st.op = 0; });
+  PICKS.forEach(pk => cards[pk.idx].setBadge(pk.fit));
+  state.step = 0;
+  view = { type: 'overview' };
+  Object.assign(cam, viewFrame(view));
+  step1(id);
+}
+
+nextBtn.addEventListener('click', next);
+$('reset').addEventListener('click', reset);
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('button')) { if (e.key === 'Enter' || e.key === ' ') return; }
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+  if (e.key === 'r' || e.key === 'R') reset();
+});
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  if (state.step === 1 && !state.busy) {
+    layoutHomes();
+    cards.forEach(c => to(c.st, { x: c.home.x, y: c.home.y, z: c.home.z }, 500, E.outCubic));
+  }
+  if (!tweens.some(t => t.obj === cam)) Object.assign(cam, viewFrame(view));
+});
+
+/* ---------- boot ---------- */
+(async () => {
+  try {
+    await Promise.race([
+      Promise.all(['400', '500', '600', '700'].map(w => document.fonts.load(`${w} 16px "Instrument Sans"`)).concat(document.fonts.load('500 12px "JetBrains Mono"'))),
+      sleep(2500),
+    ]);
+  } catch {}
+  buildCards();
+  requestAnimationFrame(tick);
+  reset();
+})();
+</script>

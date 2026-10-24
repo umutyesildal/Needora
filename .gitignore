@@ -1,1 +1,13 @@
 .DS_Store
+.env*
+!.env.example
+node_modules/
+/.next/
+/out/
+/build
+/coverage
+*.tsbuildinfo
+next-env.d.ts
+*.pem
+.vercel
+npm-debug.log*

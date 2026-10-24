@@ -1,0 +1,114 @@
+{
+  "name": "RowRun",
+  "website": "https://row.run",
+  "profile_source": "pdf",
+  "profile": {
+    "product": "RowRun (row.run), \"your AI automation engineer\" for sales and ops teams, built in Berlin by Uppacut UG. You describe a recurring business process in plain words (or drop the spreadsheet you use today); an AI agent writes it as versioned TypeScript code, runs it on sample data so you see every resulting row, then keeps it running on a schedule or trigger, processing each row as its own retryable job. Deterministic code for everything predictable, narrowly scoped AI agents only where judgement is needed, human approval steps, typed tables with SQL, a credential vault, and an MCP server so Claude, ChatGPT or Codex can build in the workspace. Servers in Germany.",
+    "one_liner": "Describe a recurring sales or ops process once in plain words, and RowRun turns it into reliable code that runs on every row, every week.",
+    "pricing": [
+      { "plan": "Free trial", "price": "$0", "note": "24 hours without signup, 7 days after email verification; $0.50 to $5 of AI and web usage included; bring your own AI keys from the trial on" },
+      { "plan": "Starter", "price": "$20/mo", "note": "$200/yr; 200,000 credits (1 credit = $0.0001), 25,000 rows per run, 1 GB; all connectors, schedules, webhooks, own AI keys; unlimited members; about 1,900 companies enriched per month" },
+      { "plan": "Team", "price": "$200/mo", "note": "$2,000/yr; 2,000,000 credits, 250,000 rows per run, 10 GB; priority email support; unlimited members" },
+      { "plan": "Business", "price": "$800/mo", "note": "$8,000/yr; 9,500,000 credits (about 16% off), 1,000,000 rows per run, 50 GB; extra credits $85/million; onboarding and a direct line to the founder" },
+      { "plan": "Enterprise", "price": "Custom", "note": "Done-with-you rollout, deployment in almost any environment, data isolation" }
+    ],
+    "targets": [
+      "Head of RevOps, SalesOps or GTM engineering at B2B companies with 5 to 200 employees and a CRM (HubSpot, Salesforce, Pipedrive)",
+      "Ops-minded or technical founders doing sales at a startup who build lists and research prospects without a GTM engineer",
+      "GTM engineers, automation freelancers and agencies running automations for several clients",
+      "Developers using Claude Code, Codex or Cursor who need a durable backend for recurring agent-built jobs",
+      "Finance operations teams matching invoices to purchase orders",
+      "Support operations teams triaging and escalating tickets"
+    ],
+    "pains": [
+      "Spending hours every week on repetitive, list-shaped work: copying HubSpot deals into a sheet, enriching leads, cleaning CRM records",
+      "Needing an automation engineer but not being able to hire one",
+      "Flowchart builders like Zapier, Make and n8n need someone to build and keep maintaining every node on a canvas",
+      "Chat agents like ChatGPT or Claude are great for one-off tasks but drift and give a slightly different result every run",
+      "Task-based and per-seat pricing gets expensive fast for bulk work on thousands of rows",
+      "Clay is powerful but starts at $185/month, too pricey for a small team",
+      "Not trusting an AI agent with the keys to the CRM, inbox and drive, and not being able to check what it did and why",
+      "Long automation runs that fail halfway and restart instead of retrying only the failed rows"
+    ],
+    "use_cases": [
+      { "name": "Find guests for a founder dinner", "url": "https://row.run" },
+      { "name": "Enrich new HubSpot leads", "url": "https://row.run" },
+      { "name": "Qualify and route inbound leads", "url": "https://row.run" },
+      { "name": "Monday pipeline report in Slack", "url": "https://row.run" },
+      { "name": "Clean up duplicate CRM records", "url": "https://row.run" },
+      { "name": "Match invoices to purchase orders", "url": "https://row.run" },
+      { "name": "Kick off customer onboarding", "url": "https://row.run" },
+      { "name": "Triage support tickets", "url": "https://row.run" }
+    ],
+    "competitors": [
+      {
+        "name": "Clay",
+        "weak_spots": [
+          "Entry price from $185/month (Launch), roughly nine times RowRun's $20 Starter",
+          "Focused on GTM data; not built for finance, support or engineering processes",
+          "No bring-your-own-key AI at one credit per call and no EU hosting"
+        ],
+        "complaint_query": "Clay too expensive"
+      },
+      {
+        "name": "n8n",
+        "weak_spots": [
+          "Produces a JSON node graph that someone must understand and maintain on a canvas",
+          "No native row-level durable fan-out with per-row results; workflows restart rather than resume mid-run",
+          "Execution-based pricing (2,500 executions on the EUR 20 Starter) adds up for bulk list work"
+        ],
+        "complaint_query": "n8n workflow keeps breaking"
+      },
+      {
+        "name": "Zapier",
+        "weak_spots": [
+          "Task-based billing gets expensive for bulk list work (750 tasks on the $19.99 Professional plan)",
+          "AI Agents are a separate paid add-on ($33.33 to $50/month for 1,500 activities)",
+          "Output is not reviewable code and there are no per-row parallel durable runs"
+        ],
+        "complaint_query": "Zapier too expensive"
+      },
+      {
+        "name": "Make",
+        "weak_spots": [
+          "Credits charged per module action, so large lists burn credits quickly",
+          "Scenarios are a visual canvas someone has to build and maintain; output is not reviewable code",
+          "AI Agents only in open beta since Feb 2026 and pricing is not seat-free"
+        ],
+        "complaint_query": "Make.com scenario too complicated"
+      },
+      {
+        "name": "Gumloop",
+        "weak_spots": [
+          "Agent-first design: re-runs are not deterministic by default",
+          "From $37/month on credits plus an orchestration fee",
+          "Weaker per-row durable execution and security certifications vary by plan"
+        ],
+        "complaint_query": "Gumloop credits expensive"
+      },
+      {
+        "name": "Lindy",
+        "weak_spots": [
+          "Priced per user (Plus $29.99 to $49.99, Pro $99.99, Max $199.99), so costs grow with the team",
+          "Repositioned toward an AI executive assistant rather than list-shaped ops work",
+          "Puts the agent at the centre instead of constraining it, so results are less predictable"
+        ],
+        "complaint_query": "Lindy AI too expensive per user"
+      }
+    ],
+    "where_buyers_talk": [
+      "r/sales",
+      "r/RevOps",
+      "r/salesops",
+      "r/zapier",
+      "r/n8n",
+      "r/automation",
+      "r/nocode",
+      "r/SaaS",
+      "r/startups",
+      "r/hubspot",
+      "X (GTM engineers, RevOps, AI automation builders)",
+      "LinkedIn (RevOps, SalesOps and GTM engineering posts)"
+    ]
+  }
+}

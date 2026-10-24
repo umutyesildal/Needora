@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/* Needora design tokens (docs/design/needora-dashboard.dc.html). Use as bg-ink, text-muted, border-line, font-mono, animate-live ... */
+@theme inline {
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
+@theme {
+  --color-ink: #1c1b19;
+  --color-ink-soft: #57534d;
+  --color-muted: #6f6b64;
+  --color-subtle: #8a867f;
+  --color-faint: #9a968e;
+  --color-line: #e3e0da;
+  --color-line-soft: #ece9e4;
+  --color-canvas: #f5f4f1;
+  --color-hover: #faf9f6;
+  --color-field: #faf9f7;
+  --color-accent: oklch(0.56 0.2 27);
+  --animate-live: live 1s infinite;
+  @keyframes live {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+}
+
+@layer base {
+  /* design never sets line-height globally; override preflight's 1.5 */
+  html {
+    line-height: normal;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+  }
+  a {
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  a:hover {
+    color: var(--color-accent);
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}

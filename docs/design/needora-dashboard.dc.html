@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f5f4f1;color:#1c1b19;font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#1c1b19;text-decoration:underline;text-underline-offset:2px}
+a:hover{color:oklch(0.56 0.2 27)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+textarea,input,button{font-family:inherit}
+</style>
+</helmet>
+<div style="display:grid;grid-template-columns:216px minmax(0,1fr);min-height:100vh;background:#f5f4f1;color:#1c1b19;">
+  <aside style="border-right:1px solid #e3e0da;padding:20px 12px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh;box-sizing:border-box;">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 8px;">
+      <div style="width:22px;height:22px;border-radius:6px;background:#1c1b19;display:grid;place-items:center;"><div style="width:8px;height:8px;border-radius:50%;background:oklch(0.56 0.2 27);"></div></div>
+      <div style="font-weight:600;font-size:15px;letter-spacing:-0.01em;">Needora</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;position:relative;">
+      <div style="font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.06em;padding:0 8px;">Client</div>
+      <button onClick="{{ toggleMenu }}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid {{ menuBorder }};border-radius:8px;background:{{ menuBg }};cursor:pointer;text-align:left;color:#1c1b19;" style-hover="background:#ffffff;">
+        <div style="width:26px;height:26px;border-radius:6px;background:#ffffff;border:1px solid #e3e0da;display:grid;place-items:center;font-size:12px;font-weight:600;flex-shrink:0;">{{ clientInitial }}</div>
+        <div style="display:flex;flex-direction:column;min-width:0;flex:1;">
+          <div style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ clientName }}</div>
+          <div style="font-size:12px;color:#8a867f;font-family:'Geist Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ clientUrl }}</div>
+        </div>
+        <span style="font-size:11px;color:#8a867f;">▾</span>
+      </button>
+      <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:100%;left:0;right:0;margin-top:6px;z-index:20;background:#ffffff;border:1px solid #e3e0da;border-radius:10px;box-shadow:0 8px 24px rgba(28,27,25,0.08);padding:6px;display:flex;flex-direction:column;gap:2px;">
+          <sc-for list="{{ clientList }}" as="cl" hint-placeholder-count="1">
+            <button onClick="{{ cl.pick }}" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border:0;border-radius:6px;background:{{ cl.bg }};cursor:pointer;text-align:left;color:#1c1b19;" style-hover="background:#f5f4f1;">
+              <div style="width:22px;height:22px;border-radius:5px;border:1px solid #e3e0da;display:grid;place-items:center;font-size:11px;font-weight:600;flex-shrink:0;">{{ cl.initial }}</div>
+              <div style="display:flex;flex-direction:column;min-width:0;flex:1;">
+                <div style="font-size:13px;font-weight:500;">{{ cl.name }}</div>
+                <div style="font-size:11px;color:#8a867f;">{{ cl.note }}</div>
+              </div>
+              <span style="font-size:12px;color:oklch(0.56 0.2 27);">{{ cl.check }}</span>
+            </button>
+          </sc-for>
+          <div style="height:1px;background:#ece9e4;margin:4px 0;"></div>
+          <sc-if value="{{ notAdding }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ openAdd }}" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border:0;border-radius:6px;background:transparent;cursor:pointer;text-align:left;font-size:13px;color:#1c1b19;" style-hover="background:#f5f4f1;"><span style="width:22px;height:22px;border-radius:5px;border:1px dashed #cfcac2;display:grid;place-items:center;font-size:13px;color:#6f6b64;">+</span>Add client</button>
+          </sc-if>
+          <sc-if value="{{ adding }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:6px;padding:4px;">
+              <input value="{{ newName }}" onChange="{{ setNewName }}" placeholder="Client name" style="padding:7px 9px;border:1px solid #e3e0da;border-radius:6px;font-size:13px;background:#faf9f7;color:#1c1b19;">
+              <input value="{{ newUrl }}" onChange="{{ setNewUrl }}" placeholder="website.com" style="padding:7px 9px;border:1px solid #e3e0da;border-radius:6px;font-size:13px;font-family:'Geist Mono',monospace;background:#faf9f7;color:#1c1b19;">
+              <div style="display:flex;gap:6px;">
+                <button onClick="{{ addClient }}" style="flex:1;padding:7px;border:0;border-radius:6px;background:oklch(0.56 0.2 27);color:#ffffff;font-size:13px;cursor:pointer;">Add and research</button>
+                <button onClick="{{ cancelAdd }}" style="padding:7px 10px;border:1px solid #e3e0da;border-radius:6px;background:#ffffff;color:#6f6b64;font-size:13px;cursor:pointer;">Cancel</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+    </div>
+    <nav style="display:flex;flex-direction:column;gap:2px;">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="5">
+        <button onClick="{{ n.go }}" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:0;border-radius:7px;background:{{ n.bg }};color:{{ n.fg }};font-size:14px;cursor:pointer;text-align:left;"><span>{{ n.label }}</span><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#8a867f;">{{ n.count }}</span></button>
+      </sc-for>
+    </nav>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid #e3e0da;border-radius:10px;background:#ffffff;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#6f6b64;"><span>Send mode</span><span style="color:#1c1b19;font-weight:500;">{{ modeLabel }}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#6f6b64;"><span>Send cap / run</span><span style="color:#1c1b19;font-weight:500;font-family:'Geist Mono',monospace;">{{ cap }}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#6f6b64;"><span>Next auto run</span><span style="color:#1c1b19;font-weight:500;font-family:'Geist Mono',monospace;">{{ nextRunShort }}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#6f6b64;"><span>Threshold</span><span style="color:#1c1b19;font-weight:500;font-family:'Geist Mono',monospace;">{{ threshold }}</span></div>
+    </div>
+  </aside>
+
+  <main style="min-width:0;padding:24px 28px 56px;display:flex;flex-direction:column;gap:20px;">
+
+    <sc-if value="{{ isNewClient }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:20px;max-width:760px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em;">{{ clientName }}</h1>
+          <div style="font-size:13px;color:#6f6b64;font-family:'Geist Mono',monospace;">{{ clientUrl }}</div>
+        </div>
+        <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:14px;">
+          <div style="font-size:15px;font-weight:600;">Set up this client</div>
+          <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;">
+            <div style="display:flex;gap:10px;align-items:center;"><span style="width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;background:{{ setup1Bg }};color:{{ setup1Fg }};">1</span><span>Research the website: product, pricing, customers, competitors, queries</span></div>
+            <div style="display:flex;gap:10px;align-items:center;"><span style="width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;background:#ece9e4;color:#6f6b64;">2</span><span>Press Find leads</span></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input value="{{ researchUrl }}" onChange="{{ setUrl }}" style="flex:1;min-width:200px;padding:9px 12px;border:1px solid #e3e0da;border-radius:7px;font-size:14px;font-family:'Geist Mono',monospace;background:#faf9f7;color:#1c1b19;">
+            <button onClick="{{ startResearch }}" disabled="{{ researching }}" style="padding:9px 16px;border:0;border-radius:7px;background:#1c1b19;color:#ffffff;font-size:14px;cursor:pointer;">{{ researchLabel }}</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
+            <sc-for list="{{ researchSteps }}" as="rs" hint-placeholder-count="6">
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <div style="height:3px;border-radius:2px;background:{{ rs.bar }};"></div>
+                <div style="font-size:13px;color:{{ rs.fg }};">{{ rs.label }}</div>
+                <div style="font-size:12px;color:#8a867f;font-family:'Geist Mono',monospace;">{{ rs.detail }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ newReady }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;background:oklch(0.95 0.04 155);color:oklch(0.4 0.11 155);font-size:13px;flex-wrap:wrap;">
+              <span>Profile stored. Lead runs for this client start from here; demo leads exist only for RowRun.</span>
+            </div>
+          </sc-if>
+        </section>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isLeads }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <header style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em;">Leads</h1>
+            <div style="font-size:13px;color:#6f6b64;">People on Reddit, X and LinkedIn asking for what {{ clientName }} sells. Profile source: <span style="color:#1c1b19;">{{ sourceLabel }}</span></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="font-size:12px;color:#8a867f;font-family:'Geist Mono',monospace;">{{ runMeta }}</div>
+            <button onClick="{{ start }}" disabled="{{ running }}" style="display:flex;align-items:center;gap:8px;padding:10px 18px;border:0;border-radius:8px;background:{{ findBg }};color:#ffffff;font-size:14px;font-weight:500;cursor:pointer;">{{ liveDot }}<span>{{ findLabel }}</span></button>
+          </div>
+        </header>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
+          <sc-for list="{{ stats }}" as="st" hint-placeholder-count="6">
+            <div style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;">
+              <div style="font-size:12px;color:#6f6b64;">{{ st.label }}</div>
+              <div style="font-size:24px;font-weight:500;letter-spacing:-0.02em;font-family:'Geist Mono',monospace;color:{{ st.color }};">{{ st.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:baseline;gap:10px;">
+              <div style="font-size:15px;font-weight:600;">Pipeline</div>
+              <div style="font-size:12px;color:#8a867f;font-family:'Geist Mono',monospace;">{{ runTitle }}</div>
+            </div>
+            <div style="font-size:12px;color:#6f6b64;">{{ runStatus }}</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+            <sc-for list="{{ steps }}" as="sp" hint-placeholder-count="6">
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div style="height:3px;border-radius:2px;background:{{ sp.bar }};"></div>
+                <div style="display:flex;gap:6px;align-items:baseline;font-size:13px;color:{{ sp.fg }};"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#9a968e;">{{ sp.num }}</span><span style="font-weight:500;">{{ sp.label }}</span></div>
+                <div style="font-size:12px;color:#6f6b64;font-family:'Geist Mono',monospace;">{{ sp.detail }}</div>
+                <div style="font-size:11px;color:#9a968e;">{{ sp.via }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ showReviewBar }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;background:oklch(0.96 0.04 75);color:oklch(0.42 0.1 65);font-size:13px;flex-wrap:wrap;">
+              <span>{{ reviewText }}</span>
+              <button onClick="{{ approveAll }}" style="padding:7px 12px;border:0;border-radius:6px;background:#1c1b19;color:#ffffff;font-size:13px;cursor:pointer;">Approve all and send</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showLog }}" hint-placeholder-val="{{ true }}">
+            <div style="background:#faf9f7;border:1px solid #ece9e4;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;font-family:'Geist Mono',monospace;font-size:12px;min-height:126px;">
+              <sc-for list="{{ logs }}" as="lg" hint-placeholder-count="6">
+                <div style="display:flex;gap:12px;color:{{ lg.color }};"><span style="color:#b0aca4;">{{ lg.t }}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ lg.text }}</span></div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </section>
+
+        <div style="display:grid;grid-template-columns:{{ splitCols }};gap:16px;align-items:start;">
+          <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;min-width:0;overflow:hidden;">
+            <div style="display:flex;gap:4px;padding:10px 12px;border-bottom:1px solid #ece9e4;flex-wrap:wrap;">
+              <sc-for list="{{ filters }}" as="f" hint-placeholder-count="5">
+                <button onClick="{{ f.go }}" style="display:flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid {{ f.border }};border-radius:6px;background:{{ f.bg }};color:#1c1b19;font-size:13px;cursor:pointer;"><span>{{ f.label }}</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#8a867f;">{{ f.count }}</span></button>
+              </sc-for>
+            </div>
+            <div style="display:grid;grid-template-columns:{{ rowCols }};gap:12px;padding:8px 16px;font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #ece9e4;">
+              <span></span><span>Post</span><span style="text-align:right;">Intent</span><span style="text-align:right;">Power</span><span style="text-align:right;">Score</span><span>Competitor</span><span>Status</span>
+            </div>
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+              <div onClick="{{ r.select }}" style="display:grid;grid-template-columns:{{ rowCols }};gap:12px;padding:12px 16px;align-items:start;border-bottom:1px solid #f0eeea;background:{{ r.bg }};cursor:pointer;" style-hover="background:#faf9f6;">
+                <div style="width:26px;height:26px;border-radius:6px;background:{{ r.pBg }};color:{{ r.pFg }};display:grid;place-items:center;font-size:11px;font-weight:600;">{{ r.pShort }}</div>
+                <div style="min-width:0;display:flex;flex-direction:column;gap:3px;">
+                  <div style="font-size:12px;color:#6f6b64;display:flex;gap:6px;flex-wrap:wrap;"><span style="color:#1c1b19;font-weight:500;">{{ r.handle }}</span><span>{{ r.where }}</span><span>· {{ r.age }}</span></div>
+                  <div style="font-size:13px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ r.text }}</div>
+                </div>
+                <div style="text-align:right;font-family:'Geist Mono',monospace;font-size:13px;color:#6f6b64;">{{ r.intent }}</div>
+                <div style="text-align:right;font-family:'Geist Mono',monospace;font-size:13px;color:#6f6b64;">{{ r.power }}</div>
+                <div style="text-align:right;font-family:'Geist Mono',monospace;font-size:14px;font-weight:500;color:{{ r.scoreFg }};">{{ r.score }}</div>
+                <div><sc-if value="{{ r.flagged }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;padding:2px 7px;border-radius:5px;background:oklch(0.95 0.04 320);color:oklch(0.45 0.14 320);font-size:12px;">{{ r.competitor }}</span></sc-if><sc-if value="{{ r.noFlag }}" hint-placeholder-val="{{ true }}"><span style="color:#c4c0b8;font-size:13px;">—</span></sc-if></div>
+                <div><span style="display:inline-block;padding:2px 8px;border-radius:5px;border:1px solid {{ r.stBorder }};background:{{ r.stBg }};color:{{ r.stFg }};font-size:12px;white-space:nowrap;">{{ r.status }}</span></div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ emptyRows }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:40px 16px;text-align:center;font-size:13px;color:#8a867f;">{{ emptyText }}</div>
+            </sc-if>
+          </section>
+
+          <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+            <aside style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;position:sticky;top:20px;max-height:calc(100vh - 40px);overflow:auto;display:flex;flex-direction:column;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px;border-bottom:1px solid #ece9e4;">
+                <div style="display:flex;gap:10px;align-items:center;min-width:0;">
+                  <div style="width:30px;height:30px;border-radius:7px;background:{{ sel.pBg }};color:{{ sel.pFg }};display:grid;place-items:center;font-size:12px;font-weight:600;flex-shrink:0;">{{ sel.pShort }}</div>
+                  <div style="display:flex;flex-direction:column;min-width:0;">
+                    <div style="font-size:14px;font-weight:600;">{{ sel.handle }}</div>
+                    <div style="font-size:12px;color:#6f6b64;">{{ sel.where }} · {{ sel.age }}</div>
+                  </div>
+                </div>
+                <button onClick="{{ closeSel }}" style="border:1px solid #e3e0da;background:#ffffff;border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer;color:#6f6b64;">Close</button>
+              </div>
+
+              <div style="padding:16px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid #ece9e4;">
+                <div style="font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.06em;">Post</div>
+                <div style="font-size:14px;line-height:1.55;padding-left:12px;border-left:2px solid #e3e0da;">{{ sel.text }}</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                  <a href="#" style="font-size:12px;">Open on {{ sel.platformLabel }}</a>
+                  <sc-if value="{{ sel.flagged }}" hint-placeholder-val="{{ false }}"><span style="padding:2px 7px;border-radius:5px;background:oklch(0.95 0.04 320);color:oklch(0.45 0.14 320);font-size:12px;">Complaint about {{ sel.competitor }}</span></sc-if>
+                </div>
+              </div>
+
+              <div style="padding:16px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:center;border-bottom:1px solid #ece9e4;">
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                  <div style="font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.06em;">Score</div>
+                  <div style="font-size:34px;font-weight:500;font-family:'Geist Mono',monospace;letter-spacing:-0.03em;color:{{ sel.scoreFg }};">{{ sel.score }}</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <div style="display:flex;flex-direction:column;gap:4px;">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;color:#6f6b64;"><span>Buying intent</span><span style="font-family:'Geist Mono',monospace;">{{ sel.intent }}</span></div>
+                    <div style="height:4px;background:#efede9;border-radius:2px;"><div style="height:4px;border-radius:2px;background:#1c1b19;width:{{ sel.intentW }};"></div></div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:4px;">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;color:#6f6b64;"><span>Buying power</span><span style="font-family:'Geist Mono',monospace;">{{ sel.power }}</span></div>
+                    <div style="height:4px;background:#efede9;border-radius:2px;"><div style="height:4px;border-radius:2px;background:oklch(0.56 0.2 27);width:{{ sel.powerW }};"></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <sc-if value="{{ sel.hasProfile }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:16px;display:flex;flex-direction:column;gap:14px;border-bottom:1px solid #ece9e4;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                    <div style="font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.06em;">Buyer profile</div>
+                    <div style="font-size:11px;color:#9a968e;">from profile + {{ sel.recent }} recent posts</div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="font-size:12px;font-weight:500;">Intent signals</div>
+                    <sc-for list="{{ sel.signals }}" as="sg" hint-placeholder-count="2">
+                      <div style="display:flex;flex-direction:column;gap:3px;">
+                        <div style="font-size:13px;">{{ sg.label }}</div>
+                        <div style="font-size:12px;color:#6f6b64;font-style:italic;">“{{ sg.evidence }}”</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div style="display:flex;flex-direction:column;gap:4px;padding:10px;border:1px solid #ece9e4;border-radius:8px;">
+                      <div style="font-size:11px;color:#8a867f;">Buying power</div>
+                      <div style="font-size:14px;font-weight:500;">{{ sel.powerEst }}</div>
+                      <div style="font-size:12px;color:#6f6b64;line-height:1.4;">{{ sel.powerNote }}</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px;padding:10px;border:1px solid #ece9e4;border-radius:8px;">
+                      <div style="font-size:11px;color:#8a867f;">Detected tone</div>
+                      <div style="font-size:14px;font-weight:500;">{{ sel.toneLabel }}</div>
+                      <div style="font-size:12px;color:#6f6b64;line-height:1.4;font-style:italic;">“{{ sel.toneEvidence }}”</div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                  <div style="font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.06em;">Message</div>
+                  <span style="padding:2px 8px;border-radius:5px;border:1px solid {{ sel.stBorder }};background:{{ sel.stBg }};color:{{ sel.stFg }};font-size:12px;">{{ sel.status }}</span>
+                </div>
+                <sc-if value="{{ sel.hasMessage }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:12px;color:#6f6b64;">
+                      <span style="padding:2px 7px;border-radius:5px;background:#f2f0ec;">{{ sel.kind }}</span>
+                      <span style="padding:2px 7px;border-radius:5px;background:#f2f0ec;">Tone: {{ sel.toneLabel }}</span>
+                      <sc-if value="{{ sel.flagged }}" hint-placeholder-val="{{ false }}"><span style="padding:2px 7px;border-radius:5px;background:oklch(0.95 0.04 320);color:oklch(0.45 0.14 320);">Switch angle vs {{ sel.competitor }}</span></sc-if>
+                    </div>
+                    <textarea value="{{ sel.message }}" onChange="{{ sel.onEdit }}" readOnly="{{ sel.readOnly }}" rows="6" style="width:100%;box-sizing:border-box;border:1px solid #e3e0da;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;resize:vertical;background:{{ sel.taBg }};color:#1c1b19;"></textarea>
+                    <sc-if value="{{ sel.isFailed }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-size:12px;color:oklch(0.48 0.15 25);line-height:1.4;">{{ sel.failReason }}</div>
+                    </sc-if>
+                    <sc-if value="{{ sel.isOver }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-size:12px;color:#6f6b64;line-height:1.4;">Send cap reached for this run. Queued for the next run.</div>
+                    </sc-if>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                      <sc-if value="{{ sel.showApprove }}" hint-placeholder-val="{{ false }}"><button onClick="{{ sel.approve }}" style="padding:8px 14px;border:0;border-radius:7px;background:#1c1b19;color:#ffffff;font-size:13px;cursor:pointer;">Approve and send</button></sc-if>
+                      <sc-if value="{{ sel.isFailed }}" hint-placeholder-val="{{ false }}"><button onClick="{{ sel.retry }}" style="padding:8px 14px;border:1px solid #e3e0da;border-radius:7px;background:#ffffff;color:#1c1b19;font-size:13px;cursor:pointer;">{{ sel.retryLabel }}</button></sc-if>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ sel.noMessage }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:13px;color:#6f6b64;line-height:1.5;">{{ sel.noMsgNote }}</div>
+                </sc-if>
+              </div>
+            </aside>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isRuns }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em;">Runs</h1>
+          <div style="font-size:13px;color:#6f6b64;">Every press of Find leads is stored as a search run with its queries, posts, scores and sends.</div>
+        </div>
+        <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;overflow:hidden;">
+          <div style="display:grid;grid-template-columns:48px minmax(0,1.3fr) minmax(0,1fr) repeat(6,minmax(0,0.7fr));gap:8px;padding:10px 16px;font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #ece9e4;">
+            <span>Run</span><span>Started</span><span>Trigger</span><span style="text-align:right;">Queries</span><span style="text-align:right;">Posts</span><span style="text-align:right;">Leads</span><span style="text-align:right;">Compl.</span><span style="text-align:right;">Sent</span><span style="text-align:right;">Failed</span>
+          </div>
+          <sc-for list="{{ runs }}" as="rn" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:48px minmax(0,1.3fr) minmax(0,1fr) repeat(6,minmax(0,0.7fr));gap:8px;padding:12px 16px;font-size:13px;border-bottom:1px solid #f0eeea;font-family:'Geist Mono',monospace;">
+              <span>#{{ rn.no }}</span><span style="font-family:'Geist',sans-serif;color:#6f6b64;">{{ rn.when }}</span><span style="font-family:'Geist',sans-serif;color:{{ rn.trigFg }};">{{ rn.trigger }}</span><span style="text-align:right;">{{ rn.queries }}</span><span style="text-align:right;">{{ rn.posts }}</span><span style="text-align:right;">{{ rn.leads }}</span><span style="text-align:right;color:oklch(0.45 0.14 320);">{{ rn.complaints }}</span><span style="text-align:right;color:oklch(0.45 0.11 155);">{{ rn.sent }}</span><span style="text-align:right;color:oklch(0.48 0.15 25);">{{ rn.failed }}</span>
+            </div>
+          </sc-for>
+        </section>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isClient }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em;">Client profile</h1>
+          <div style="font-size:13px;color:#6f6b64;">What the agent knows about RowRun. Find leads writes its queries and messages from this profile.</div>
+        </div>
+        <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+            <div style="font-size:15px;font-weight:600;">Research a website</div>
+            <div style="font-size:12px;color:#6f6b64;">Current source: <span style="color:#1c1b19;">{{ sourceLabel }}</span></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input value="{{ researchUrl }}" onChange="{{ setUrl }}" style="flex:1;min-width:200px;padding:9px 12px;border:1px solid #e3e0da;border-radius:7px;font-size:14px;font-family:'Geist Mono',monospace;background:#faf9f7;color:#1c1b19;">
+            <button onClick="{{ startResearch }}" disabled="{{ researching }}" style="padding:9px 16px;border:0;border-radius:7px;background:#1c1b19;color:#ffffff;font-size:14px;cursor:pointer;">{{ researchLabel }}</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
+            <sc-for list="{{ researchSteps }}" as="rs" hint-placeholder-count="6">
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <div style="height:3px;border-radius:2px;background:{{ rs.bar }};"></div>
+                <div style="font-size:13px;color:{{ rs.fg }};">{{ rs.label }}</div>
+                <div style="font-size:12px;color:#8a867f;font-family:'Geist Mono',monospace;">{{ rs.detail }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+          <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+            <div style="font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.06em;">Product</div>
+            <div style="font-size:14px;line-height:1.55;">AI automation platform for sales and ops teams. Agents run lead research, enrichment, routing and follow ups as workflows the ops team owns, described in plain language.</div>
+            <div style="font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.06em;margin-top:8px;">Pricing</div>
+            <sc-for list="{{ pricing }}" as="pr" hint-placeholder-count="3">
+              <div style="display:grid;grid-template-columns:90px 90px minmax(0,1fr);gap:8px;font-size:13px;padding:6px 0;border-top:1px solid #f0eeea;"><span style="font-weight:500;">{{ pr.plan }}</span><span style="font-family:'Geist Mono',monospace;">{{ pr.price }}</span><span style="color:#6f6b64;">{{ pr.note }}</span></div>
+            </sc-for>
+            <div style="font-size:11px;color:#9a968e;">Placeholder values. Replaced by the PDF seed or live research.</div>
+          </section>
+          <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+            <div style="font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.06em;">Target customers</div>
+            <sc-for list="{{ targets }}" as="tg" hint-placeholder-count="4"><div style="font-size:13px;padding:6px 0;border-top:1px solid #f0eeea;">{{ tg }}</div></sc-for>
+            <div style="font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.06em;margin-top:8px;">Pains</div>
+            <sc-for list="{{ pains }}" as="pn" hint-placeholder-count="4"><div style="font-size:13px;padding:6px 0;border-top:1px solid #f0eeea;">{{ pn }}</div></sc-for>
+          </section>
+        </div>
+        <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;overflow:hidden;">
+          <div style="padding:14px 16px;border-bottom:1px solid #ece9e4;display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+            <div style="font-size:15px;font-weight:600;">Competitors and weak spots</div>
+            <div style="font-size:12px;color:#6f6b64;">Feeds the competitor complaint radar</div>
+          </div>
+          <sc-for list="{{ competitors }}" as="cp" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:100px minmax(0,1.3fr) minmax(0,1fr);gap:16px;padding:12px 16px;border-bottom:1px solid #f0eeea;font-size:13px;align-items:baseline;">
+              <span style="font-weight:500;color:oklch(0.45 0.14 320);">{{ cp.name }}</span>
+              <span style="line-height:1.45;">{{ cp.weak }}</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:12px;color:#6f6b64;">{{ cp.q }}</span>
+            </div>
+          </sc-for>
+        </section>
+        <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:15px;font-weight:600;">Search queries</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <sc-for list="{{ queries }}" as="qq" hint-placeholder-count="8">
+              <span style="padding:5px 9px;border-radius:6px;font-size:12px;font-family:'Geist Mono',monospace;background:{{ qq.bg }};color:{{ qq.fg }};">{{ qq.text }}</span>
+            </sc-for>
+          </div>
+        </section>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isHow }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:20px;max-width:980px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em;">How it works</h1>
+          <div style="font-size:13px;color:#6f6b64;line-height:1.5;">One press of Find leads runs the whole loop once. Each step reads from and writes to the Neon database, so the dashboard can show a run while it is still going.</div>
+        </div>
+        <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;overflow:hidden;">
+          <div style="display:grid;grid-template-columns:36px minmax(140px,0.9fr) minmax(0,1.6fr) minmax(120px,0.8fr) minmax(0,1fr);gap:14px;padding:10px 16px;font-size:11px;color:#8a867f;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #ece9e4;">
+            <span></span><span>Step</span><span>What happens</span><span>Service</span><span>Writes</span>
+          </div>
+          <div style="display:grid;grid-template-columns:36px minmax(140px,0.9fr) minmax(0,1.6fr) minmax(120px,0.8fr) minmax(0,1fr);gap:14px;padding:14px 16px;font-size:13px;line-height:1.5;border-bottom:1px solid #f0eeea;">
+            <span style="font-family:'Geist Mono',monospace;color:#9a968e;">01</span><span style="font-weight:500;">Write queries</span><span>The agent reads the client profile and writes search queries for each platform: buying questions ("anyone know a tool that…") and complaint queries for every competitor.</span><span style="color:#6f6b64;">OpenAI</span><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#6f6b64;">search_runs, queries</span>
+          </div>
+          <div style="display:grid;grid-template-columns:36px minmax(140px,0.9fr) minmax(0,1.6fr) minmax(120px,0.8fr) minmax(0,1fr);gap:14px;padding:14px 16px;font-size:13px;line-height:1.5;border-bottom:1px solid #f0eeea;">
+            <span style="font-family:'Geist Mono',monospace;color:#9a968e;">02</span><span style="font-weight:500;">Scrape</span><span>Apify actors run the queries on Reddit, X and LinkedIn and return recent posts. A cheap pre-filter drops duplicates and posts with no buying language.</span><span style="color:#6f6b64;">Apify</span><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#6f6b64;">posts, leads</span>
+          </div>
+          <div style="display:grid;grid-template-columns:36px minmax(140px,0.9fr) minmax(0,1.6fr) minmax(120px,0.8fr) minmax(0,1fr);gap:14px;padding:14px 16px;font-size:13px;line-height:1.5;border-bottom:1px solid #f0eeea;">
+            <span style="font-family:'Geist Mono',monospace;color:#9a968e;">03</span><span style="font-weight:500;">Score</span><span>The batch is scored for buying intent (are they asking now?) and buying power (role, company size, budget hints). Score = 60% intent + 40% power. Leads at or above the threshold become top matches.</span><span style="color:#6f6b64;">OpenAI</span><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#6f6b64;">scores</span>
+          </div>
+          <div style="display:grid;grid-template-columns:36px minmax(140px,0.9fr) minmax(0,1.6fr) minmax(120px,0.8fr) minmax(0,1fr);gap:14px;padding:14px 16px;font-size:13px;line-height:1.5;border-bottom:1px solid #f0eeea;">
+            <span style="font-family:'Geist Mono',monospace;color:#9a968e;">04</span><span style="font-weight:500;">Flag complaints</span><span>Posts that complain about a competitor from the profile (Clay, n8n, Zapier, Make) are flagged with the competitor named. Their message gets the switch angle.</span><span style="color:#6f6b64;">OpenAI</span><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#6f6b64;">scores.competitor</span>
+          </div>
+          <div style="display:grid;grid-template-columns:36px minmax(140px,0.9fr) minmax(0,1.6fr) minmax(120px,0.8fr) minmax(0,1fr);gap:14px;padding:14px 16px;font-size:13px;line-height:1.5;border-bottom:1px solid #f0eeea;">
+            <span style="font-family:'Geist Mono',monospace;color:#9a968e;">05</span><span style="font-weight:500;">Profile and write</span><span>For top matches the agent scrapes the author's profile and recent posts, builds a buyer profile (intent signals, buying power, tone) and writes a message in that tone with the row.run link.</span><span style="color:#6f6b64;">Apify, OpenAI</span><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#6f6b64;">lead_profiles, messages</span>
+          </div>
+          <div style="display:grid;grid-template-columns:36px minmax(140px,0.9fr) minmax(0,1.6fr) minmax(120px,0.8fr) minmax(0,1fr);gap:14px;padding:14px 16px;font-size:13px;line-height:1.5;">
+            <span style="font-family:'Geist Mono',monospace;color:#9a968e;">06</span><span style="font-weight:500;">Post</span><span>Messages go out as a reply under the post or as a DM, highest score first, until the send cap is reached. In review mode they wait for approval. Failures are stored with the reason.</span><span style="color:#6f6b64;">Platform APIs</span><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#6f6b64;">sends</span>
+          </div>
+        </section>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+          <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+            <div style="font-size:15px;font-weight:600;">Data model</div>
+            <div style="display:flex;flex-direction:column;font-family:'Geist Mono',monospace;font-size:12px;line-height:1.5;">
+              <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid #f0eeea;"><span style="color:#1c1b19;">clients</span><span style="color:#6f6b64;">name, website</span></div>
+              <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid #f0eeea;"><span style="color:#1c1b19;">client_profiles</span><span style="color:#6f6b64;">product, pricing, targets, pains, source (pdf | live)</span></div>
+              <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid #f0eeea;"><span style="color:#1c1b19;">competitors</span><span style="color:#6f6b64;">name, weak_spot, complaint_query</span></div>
+              <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid #f0eeea;"><span style="color:#1c1b19;">search_runs</span><span style="color:#6f6b64;">started_at, step, queries, send_cap, status</span></div>
+              <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid #f0eeea;"><span style="color:#1c1b19;">posts</span><span style="color:#6f6b64;">platform, url, author, text, posted_at</span></div>
+              <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid #f0eeea;"><span style="color:#1c1b19;">leads</span><span style="color:#6f6b64;">post_id, run_id, is_top_match</span></div>
+              <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid #f0eeea;"><span style="color:#1c1b19;">scores</span><span style="color:#6f6b64;">intent, power, total, competitor</span></div>
+              <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid #f0eeea;"><span style="color:#1c1b19;">lead_profiles</span><span style="color:#6f6b64;">signals[], power_estimate, tone, evidence</span></div>
+              <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid #f0eeea;"><span style="color:#1c1b19;">messages</span><span style="color:#6f6b64;">lead_id, kind (reply | dm), body, angle</span></div>
+              <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid #f0eeea;"><span style="color:#1c1b19;">sends</span><span style="color:#6f6b64;">message_id, status (sent | failed | awaiting | over_cap), error</span></div>
+            </div>
+          </section>
+          <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+            <div style="font-size:15px;font-weight:600;">Guardrails</div>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5;">
+              <div style="padding-top:8px;border-top:1px solid #f0eeea;"><span style="font-weight:500;">Send cap.</span> At most N sends per run, highest score first. The rest stay queued.</div>
+              <div style="padding-top:8px;border-top:1px solid #f0eeea;"><span style="font-weight:500;">Threshold.</span> Only leads at or above the score threshold get a message.</div>
+              <div style="padding-top:8px;border-top:1px solid #f0eeea;"><span style="font-weight:500;">Review mode.</span> Messages wait for a click before they are posted.</div>
+              <div style="padding-top:8px;border-top:1px solid #f0eeea;"><span style="font-weight:500;">Platform rules.</span> X requires consent for automated replies and DMs; LinkedIn prohibits messaging bots and scraping; Reddit's builder policy still needs to be checked in a browser.</div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:20px;max-width:760px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em;">Settings</h1>
+          <div style="font-size:13px;color:#6f6b64;">Applies to the next run.</div>
+        </div>
+        <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;border-bottom:1px solid #f0eeea;flex-wrap:wrap;">
+            <div style="display:flex;flex-direction:column;gap:3px;"><div style="font-size:14px;font-weight:500;">Send mode</div><div style="font-size:12px;color:#6f6b64;">Auto posts right away. Review holds every message for approval.</div></div>
+            <div style="display:flex;gap:4px;padding:3px;background:#f2f0ec;border-radius:8px;">
+              <button onClick="{{ setAuto }}" style="padding:6px 14px;border:0;border-radius:6px;background:{{ autoBg }};font-size:13px;cursor:pointer;color:#1c1b19;">Auto</button>
+              <button onClick="{{ setReview }}" style="padding:6px 14px;border:0;border-radius:6px;background:{{ reviewBg }};font-size:13px;cursor:pointer;color:#1c1b19;">Review</button>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;border-bottom:1px solid #f0eeea;flex-wrap:wrap;">
+            <div style="display:flex;flex-direction:column;gap:3px;"><div style="font-size:14px;font-weight:500;">Send cap per run</div><div style="font-size:12px;color:#6f6b64;">Highest scores go first.</div></div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <button onClick="{{ capDown }}" style="width:32px;height:32px;border:1px solid #e3e0da;border-radius:6px;background:#ffffff;cursor:pointer;font-size:16px;color:#1c1b19;">−</button>
+              <div style="width:44px;text-align:center;font-family:'Geist Mono',monospace;font-size:15px;">{{ cap }}</div>
+              <button onClick="{{ capUp }}" style="width:32px;height:32px;border:1px solid #e3e0da;border-radius:6px;background:#ffffff;cursor:pointer;font-size:16px;color:#1c1b19;">+</button>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;border-bottom:1px solid #f0eeea;flex-wrap:wrap;">
+            <div style="display:flex;flex-direction:column;gap:3px;"><div style="font-size:14px;font-weight:500;">Top match threshold</div><div style="font-size:12px;color:#6f6b64;">Minimum score for a message.</div></div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <button onClick="{{ thrDown }}" style="width:32px;height:32px;border:1px solid #e3e0da;border-radius:6px;background:#ffffff;cursor:pointer;font-size:16px;color:#1c1b19;">−</button>
+              <div style="width:44px;text-align:center;font-family:'Geist Mono',monospace;font-size:15px;">{{ threshold }}</div>
+              <button onClick="{{ thrUp }}" style="width:32px;height:32px;border:1px solid #e3e0da;border-radius:6px;background:#ffffff;cursor:pointer;font-size:16px;color:#1c1b19;">+</button>
+            </div>
+          </div>
+          <sc-for list="{{ platformRows }}" as="pl" hint-placeholder-count="3">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;border-bottom:1px solid #f0eeea;">
+              <div style="display:flex;gap:10px;align-items:center;">
+                <div style="width:26px;height:26px;border-radius:6px;background:{{ pl.pBg }};color:{{ pl.pFg }};display:grid;place-items:center;font-size:11px;font-weight:600;">{{ pl.short }}</div>
+                <div style="display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;font-weight:500;">{{ pl.label }}</div><div style="font-size:12px;color:#6f6b64;">{{ pl.note }}</div></div>
+              </div>
+              <button onClick="{{ pl.toggle }}" style="width:40px;height:22px;border:0;border-radius:11px;background:{{ pl.trackBg }};position:relative;cursor:pointer;padding:0;"><span style="position:absolute;top:3px;left:{{ pl.knobLeft }};width:16px;height:16px;border-radius:50%;background:#ffffff;"></span></button>
+            </div>
+          </sc-for>
+        </section>
+        <section style="background:#ffffff;border:1px solid #e3e0da;border-radius:10px;display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;border-bottom:1px solid #f0eeea;">
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0;"><div style="font-size:15px;font-weight:600;">Scheduled runs</div><div style="font-size:12px;color:#6f6b64;">A background job runs Find leads for {{ clientName }} at these times. Same send cap and threshold as manual runs.</div></div>
+            <button onClick="{{ toggleSched }}" style="width:40px;height:22px;border:0;border-radius:11px;background:{{ schedTrack }};position:relative;cursor:pointer;padding:0;flex-shrink:0;"><span style="position:absolute;top:3px;left:{{ schedKnob }};width:16px;height:16px;border-radius:50%;background:#ffffff;"></span></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px;padding:16px;opacity:{{ schedOpacity }};">
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="font-size:13px;font-weight:500;">Times</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                <sc-for list="{{ schedTimes }}" as="tm" hint-placeholder-count="3">
+                  <span style="display:flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border:1px solid #e3e0da;border-radius:7px;font-family:'Geist Mono',monospace;font-size:13px;">{{ tm.time }}<button onClick="{{ tm.remove }}" style="border:0;background:transparent;color:#9a968e;cursor:pointer;font-size:14px;padding:0 4px;line-height:1;" style-hover="color:#1c1b19;">×</button></span>
+                </sc-for>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <input type="time" value="{{ newTime }}" onChange="{{ setNewTime }}" style="padding:5px 8px;border:1px solid #e3e0da;border-radius:7px;font-size:13px;font-family:'Geist Mono',monospace;background:#faf9f7;color:#1c1b19;">
+                  <button onClick="{{ addTime }}" style="padding:6px 12px;border:1px solid #e3e0da;border-radius:7px;background:#ffffff;font-size:13px;cursor:pointer;color:#1c1b19;">Add time</button>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="font-size:13px;font-weight:500;">Days</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                <sc-for list="{{ schedDays }}" as="dy" hint-placeholder-count="7">
+                  <button onClick="{{ dy.toggle }}" style="width:44px;padding:6px 0;border:1px solid {{ dy.border }};border-radius:7px;background:{{ dy.bg }};color:{{ dy.fg }};font-size:13px;cursor:pointer;">{{ dy.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;background:#faf9f7;border:1px solid #ece9e4;flex-wrap:wrap;">
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <div style="font-size:12px;color:#6f6b64;">Next automatic run · {{ tzLabel }}</div>
+                <div style="font-size:15px;font-weight:500;font-family:'Geist Mono',monospace;">{{ nextRun }}</div>
+              </div>
+              <button onClick="{{ runSchedNow }}" disabled="{{ running }}" style="padding:7px 12px;border:1px solid #e3e0da;border-radius:7px;background:#ffffff;font-size:13px;cursor:pointer;color:#1c1b19;">Trigger job now</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;runSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.5,&quot;max&quot;:3,&quot;step&quot;:0.25,&quot;unit&quot;:&quot;×&quot;,&quot;tsType&quot;:&quot;number&quot;},&quot;defaultSendMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Auto&quot;,&quot;Review&quot;],&quot;default&quot;:&quot;Auto&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showLog&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const C = { ink:'#1c1b19', muted:'#6f6b64', faint:'#9a968e', line:'#e3e0da', accent:'oklch(0.56 0.2 27)' };
+const PLAT = {
+  reddit:{ label:'Reddit', short:'R', bg:'oklch(0.94 0.04 45)', fg:'oklch(0.48 0.14 45)', note:'Reply under the post' },
+  x:{ label:'X', short:'X', bg:'#ebe9e4', fg:'#1c1b19', note:'Reply under the post or DM' },
+  linkedin:{ label:'LinkedIn', short:'in', bg:'oklch(0.94 0.03 250)', fg:'oklch(0.45 0.12 250)', note:'Comment under the post' }
+};
+const STEPS = [
+  { label:'Write queries', via:'OpenAI' }, { label:'Scrape', via:'Apify' }, { label:'Score', via:'OpenAI' },
+  { label:'Flag complaints', via:'OpenAI' }, { label:'Profile + write', via:'Apify · OpenAI' }, { label:'Post', via:'Platform APIs' }
+];
+const QUERIES = [
+  ['"anyone know a tool" lead enrichment', false], ['automate SDR lead research', false], ['follow up after demo automatically', false],
+  ['score inbound leads before CRM', false], ['hiring first SDR AI agent', false], ['tool that finds people asking for', false],
+  ['"clay" too expensive OR alternative', true], ['"n8n" broke OR maintaining', true], ['"zapier" sales workflows replace', true], ['"make.com" operations limit', true]
+];
+const SCRAPED = { reddit:312, x:418, linkedin:117 };
+const LEADS = [
+  { id:'l3', platform:'linkedin', handle:'Jonas Weber', where:'Head of Sales Ops, 120-person SaaS', age:'2h', intent:90, power:86, competitor:'n8n', kind:'Comment', recent:6,
+    text:'Third time this quarter our n8n lead routing broke silently and we lost a week of inbound. Looking for something our ops team can own without an engineer.',
+    signals:[{label:'Actively looking for a replacement', evidence:'Looking for something our ops team can own'},{label:'Measurable pain from the current tool', evidence:'we lost a week of inbound'}],
+    powerEst:'High', powerNote:'Leads Sales Ops at a 120-person company; posts about owning the ops tool budget.', tone:'Serious', toneEv:'Third time this quarter… lost a week of inbound.',
+    message:'Silent failures are the real cost with self-hosted flows. RowRun is built for ops teams to own: every run is logged, failures alert the owner, and nobody maintains nodes. Happy to show what lead routing looks like there: row.run' },
+  { id:'l12', platform:'linkedin', handle:'Tom Becker', where:'VP Sales, logistics software', age:'1d', intent:85, power:90, competitor:'Clay', kind:'Comment', recent:8,
+    text:'We tried Clay for 6 months. Powerful, but our team never got past the learning curve. What are simpler alternatives?',
+    signals:[{label:'Asks for alternatives directly', evidence:'What are simpler alternatives?'},{label:'Already paid for the category', evidence:'We tried Clay for 6 months'}],
+    powerEst:'High', powerNote:'VP Sales; previously bought Clay, so budget for the category exists.', tone:'Serious', toneEv:'Powerful, but our team never got past the learning curve.',
+    message:'That learning curve is a common story with Clay. RowRun covers the same research and enrichment steps, but your team describes the workflow in plain language instead of building tables. row.run' },
+  { id:'l1', platform:'reddit', handle:'u/pipeline_pete', where:'r/sales', age:'14m', intent:92, power:74, competitor:null, kind:'Reply', recent:12,
+    text:'Our SDR team spends half the day copying leads from LinkedIn into sheets and then into HubSpot. Is there anything that does this end to end without hiring a RevOps person?',
+    signals:[{label:'Asks for a tool now', evidence:'Is there anything that does this end to end'},{label:'Names the exact workflow RowRun automates', evidence:'copying leads from LinkedIn into sheets and then into HubSpot'}],
+    powerEst:'Medium', powerNote:'Manages an SDR team; earlier posts mention a 6-person team on HubSpot.', tone:'Direct', toneEv:'Is there anything that does this end to end',
+    message:'We had the same split: SDRs doing data entry instead of selling. RowRun runs that whole path as one agent workflow: pull the lead from LinkedIn, enrich it, push it into HubSpot with the owner set. Ops can build it without code. row.run if useful.' },
+  { id:'l2', platform:'x', handle:'@mara_ops', where:'Ops lead at a seed-stage startup', age:'6m', intent:88, power:81, competitor:'Clay', kind:'Reply', recent:20,
+    fail:'X rejected the reply: the author limits replies to accounts they follow.', retry:'Retry as DM',
+    text:'Clay bill came in at $1,400 this month for what is basically 3 enrichment columns. there has to be a cheaper way lol',
+    signals:[{label:'Price complaint with a number', evidence:'$1,400 this month'},{label:'Open to switching', evidence:'there has to be a cheaper way'}],
+    powerEst:'High', powerNote:'Already spends $1,400/month on the category.', tone:'Casual, funny', toneEv:'there has to be a cheaper way lol',
+    message:'$1,400 for 3 columns hurts. RowRun does enrichment and scoring as one workflow on a flat plan, so you are not paying per credit for every row. worth a look: row.run' },
+  { id:'l6', platform:'reddit', handle:'u/forecast_fiona', where:'r/RevOps', age:'1h', intent:80, power:88, competitor:null, kind:'Reply', recent:9,
+    text:"What's everyone using to enrich and score inbound leads before they hit the CRM? Budget is fine, time isn't.",
+    signals:[{label:'Asks for a recommendation', evidence:"What's everyone using"},{label:'States budget openly', evidence:'Budget is fine'}],
+    powerEst:'High', powerNote:'Says budget is not the constraint; RevOps role.', tone:'Serious', toneEv:"Budget is fine, time isn't.",
+    message:'We use RowRun for exactly that: an agent enriches and scores every inbound lead before it reaches the CRM, using the rules you set. Setup takes an afternoon. row.run' },
+  { id:'l5', platform:'x', handle:'@devin_gtm', where:'GTM engineer', age:'22m', intent:86, power:70, competitor:'Zapier', kind:'Reply', recent:15,
+    text:'maintaining 40 zapier zaps for our outbound is a part time job. who has moved off zapier for sales workflows and to what?',
+    signals:[{label:'Asks who switched and to what', evidence:'who has moved off zapier'},{label:'Maintenance pain', evidence:'is a part time job'}],
+    powerEst:'Medium', powerNote:'Runs outbound tooling; likely influences the decision rather than signs.', tone:'Casual', toneEv:'is a part time job',
+    message:'40 zaps is a job title at this point. RowRun replaces chains like that with one agent workflow per process, and you edit it in plain language. row.run' },
+  { id:'l4', platform:'reddit', handle:'u/brightdeskhq', where:'r/smallbusiness', age:'41m', intent:84, power:48, competitor:null, kind:'Reply', recent:4,
+    text:"Any recommendations for automating follow ups after demo calls? We're 4 people and drowning.",
+    signals:[{label:'Asks for recommendations', evidence:'Any recommendations for automating follow ups'}],
+    powerEst:'Low', powerNote:'4-person company; small budget.', tone:'Urgent', toneEv:"We're 4 people and drowning.",
+    message:'Fastest fix for a 4-person team: RowRun can send the follow up right after the call, drafted from your notes. A few minutes to set up. row.run' },
+  { id:'l7', platform:'linkedin', handle:'Priya N.', where:'Founder, B2B analytics', age:'3h', intent:72, power:66, competitor:null, kind:'Comment', recent:5,
+    text:'Hiring our first SDR. Before I do, can AI agents actually handle lead research and first touch? Curious who has tried.',
+    signals:[{label:'Evaluating before a hire', evidence:'Before I do, can AI agents actually handle'}],
+    powerEst:'Medium', powerNote:'Founder, signs off on tools; early-stage budget.', tone:'Thoughtful', toneEv:'Curious who has tried.',
+    message:'Worth testing before the hire: RowRun agents handle lead research and the first message, and your SDR then works only the warm replies. row.run' },
+  { id:'l8', platform:'x', handle:'@ops_nerd', where:'Revenue ops', age:'9m', intent:76, power:58, competitor:'Make', kind:'Reply', recent:11,
+    text:'Make.com scenario for our lead scoring hit the operations limit again mid-month. fun.',
+    signals:[{label:'Recurring limit complaint', evidence:'hit the operations limit again'}],
+    powerEst:'Medium', powerNote:'Team pays for Make; limit suggests growing volume.', tone:'Sarcastic', toneEv:'fun.',
+    message:'Ops limits mid-month are the worst kind of surprise. RowRun prices per workflow, not per operation, so scoring does not stop on day 18. row.run' },
+  { id:'l11', platform:'x', handle:'@lena_builds', where:'Indie founder', age:'35m', intent:70, power:45, competitor:null, kind:'Reply', recent:18,
+    text:'Is there a tool that watches Reddit for people asking for what we sell? asking for a friend (the friend is me)',
+    signals:[{label:'Asks for a tool', evidence:'Is there a tool that watches Reddit'}],
+    powerEst:'Low', powerNote:'Solo founder.', tone:'Funny', toneEv:'asking for a friend (the friend is me)',
+    message:'Your friend is in luck. RowRun agents watch Reddit, X and LinkedIn for people asking for what you sell. row.run' },
+  { id:'l9', platform:'reddit', handle:'u/sideproject_sam', where:'r/startups', age:'2h', intent:18, power:20, competitor:null, kind:'Reply', recent:3,
+    text:'Built a lead list scraper over the weekend, anyone want to try it?', signals:[], powerEst:'Low', powerNote:'', tone:'Casual', toneEv:'' },
+  { id:'l10', platform:'reddit', handle:'u/quota_crusher', where:'r/sales', age:'5h', intent:22, power:40, competitor:null, kind:'Reply', recent:3,
+    text:'Cold email is dead, change my mind.', signals:[], powerEst:'Low', powerNote:'', tone:'Provocative', toneEv:'' }
+];
+const byId = id => LEADS.find(l => l.id === id);
+const score = l => Math.round(l.intent * 0.6 + l.power * 0.4);
+function plan(s) {
+  const pool = LEADS.filter(l => s.platforms[l.platform]);
+  const top = pool.filter(l => score(l) >= s.threshold).sort((a, b) => score(b) - score(a));
+  return { pool, top, attempts: top.slice(0, s.cap), over: top.slice(s.cap) };
+}
+const STATUS = {
+  ok:['oklch(0.95 0.04 155)','oklch(0.42 0.11 155)','oklch(0.95 0.04 155)'], bad:['oklch(0.95 0.03 25)','oklch(0.48 0.15 25)','oklch(0.95 0.03 25)'],
+  warn:['oklch(0.95 0.05 80)','oklch(0.45 0.1 65)','oklch(0.95 0.05 80)'], mute:['#eeece8','#6f6b64','#eeece8'],
+  ink:['#ffffff','#1c1b19','#d6d2cb'], faint:['transparent','#9a968e','transparent']
+};
+const RESEARCH = ['Crawl pages','Pricing','Docs and use cases','Competitors and weak spots','Target customers and pains','Write queries'];
+const RESEARCH_DONE = ['18 pages','3 plans','11 use cases','4 competitors','4 segments · 4 pains','10 queries'];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const s = { cap:5, threshold:75, platforms:{ reddit:true, x:true, linkedin:true } };
+    const p = plan(s);
+    const send = {};
+    p.attempts.forEach(l => send[l.id] = l.fail ? 'failed' : 'sent');
+    p.over.forEach(l => send[l.id] = 'over');
+    this.timers = [];
+    this.state = {
+      view:'leads', step:6, running:false, ...s, mode: props.defaultSendMode === 'Review' ? 'review' : 'auto',
+      runIds:p.pool.map(l => l.id), topIds:p.top.map(l => l.id), visible:p.pool.length, send, edits:{}, sentAs:{},
+      selectedId:null, filter:'all', runNo:14, startedAt:'14:02', t0:0, scrapedTotal:847,
+      logs:[{ t:'00:31', text:'Run #14 complete · 4 sent · 1 failed · 1 over cap', kind:'ok' }],
+      runs:[
+        { no:14, when:'Today 14:02', trigger:'Manual', queries:10, posts:847, leads:12, complaints:5, sent:4, failed:1 },
+        { no:13, when:'Today 09:00', trigger:'Scheduled', queries:10, posts:812, leads:9, complaints:3, sent:5, failed:0 },
+        { no:12, when:'Yesterday 18:00', trigger:'Scheduled', queries:8, posts:640, leads:7, complaints:2, sent:4, failed:1 },
+        { no:11, when:'Yesterday 10:22', trigger:'Manual', queries:8, posts:598, leads:6, complaints:2, sent:3, failed:0 }
+      ],
+      research:{ status:'idle', step:-1 }, researchUrl:'row.run', source:'pdf',
+      clients:[{ id:'rowrun', name:'RowRun', url:'row.run', ready:true }], clientId:'rowrun', menuOpen:false, adding:false, newName:'', newUrl:'',
+      sched:{ enabled:true, times:['09:00','14:00','18:00'], days:[1,2,3,4,5] }, newTime:'12:00', trigger:'Manual'
+    };
+  }
+  componentDidUpdate(prev) {
+    if (prev.defaultSendMode !== this.props.defaultSendMode) this.setState({ mode: this.props.defaultSendMode === 'Review' ? 'review' : 'auto' });
+  }
+  componentDidMount() {
+    this.lastFired = '';
+    this.tick = setInterval(() => {
+      const sc = this.state.sched, d = new Date(), hm = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+      const key = d.toDateString() + hm;
+      if (sc.enabled && sc.days.includes(d.getDay()) && sc.times.includes(hm) && this.lastFired !== key && !this.state.running && this.state.clientId === 'rowrun') {
+        this.lastFired = key; this.start('Scheduled');
+      }
+    }, 15000);
+  }
+  nextRun() {
+    const sc = this.state.sched; if (!sc.enabled || !sc.times.length || !sc.days.length) return null;
+    const now = new Date(), times = [...sc.times].sort();
+    for (let i = 0; i < 8; i++) {
+      const d = new Date(now); d.setDate(now.getDate() + i);
+      if (!sc.days.includes(d.getDay())) continue;
+      for (const t of times) {
+        const [h, m] = t.split(':').map(Number); const c = new Date(d); c.setHours(h, m, 0, 0);
+        if (c > now) return { date:c, label: i === 0 ? 'Today' : (i === 1 ? 'Tomorrow' : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][c.getDay()]), time:t };
+      }
+    }
+    return null;
+  }
+  setSched(fn) { this.setState(s => ({ sched: { ...s.sched, ...fn(s.sched) } })); }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); clearInterval(this.tick); }
+  ms(v) { return v / (this.props.runSpeed || 1); }
+  log(text, kind) {
+    const sec = Math.floor((Date.now() - this.state.t0) / 1000);
+    const t = String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+    this.setState(s => ({ logs: [...s.logs, { t, text, kind }] }));
+  }
+  start(trigger) {
+    if (this.state.running) return;
+    this.setState({ trigger: trigger === 'Scheduled' ? 'Scheduled' : 'Manual' });
+    this.timers.forEach(clearTimeout); this.timers = [];
+    const p = plan(this.state);
+    const now = new Date();
+    const total = Object.keys(SCRAPED).filter(k => this.state.platforms[k]).reduce((a, k) => a + SCRAPED[k], 0);
+    this.setState(s => ({ running:true, step:0, visible:0, send:{}, edits:{}, sentAs:{}, logs:[], selectedId:null, filter:'all', t0:Date.now(),
+      runNo:s.runNo + 1, startedAt:String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'),
+      runIds:p.pool.map(l => l.id), topIds:p.top.map(l => l.id), scrapedTotal:total }));
+    let t = 0;
+    const at = (d, fn) => { t += this.ms(d); this.timers.push(setTimeout(fn, t)); };
+    at(50, () => this.log((this.state.trigger === 'Scheduled' ? 'Scheduled job started · ' : '') + 'Loaded client profile: RowRun · 4 competitors', this.state.trigger === 'Scheduled' ? 'ink' : 'dim'));
+    QUERIES.forEach(([q, c]) => at(180, () => this.log((c ? 'Complaint query  ' : 'Query  ') + q, c ? 'comp' : 'dim')));
+    at(300, () => { this.setState({ step:1 }); this.log('Apify: started actors for ' + Object.keys(SCRAPED).filter(k => this.state.platforms[k]).map(k => PLAT[k].label).join(', '), 'dim'); });
+    Object.keys(SCRAPED).filter(k => this.state.platforms[k]).forEach(k => at(500, () => this.log(PLAT[k].label + ': ' + SCRAPED[k] + ' posts', 'dim')));
+    p.pool.forEach(() => at(170, () => this.setState(s => ({ visible: s.visible + 1 }))));
+    at(200, () => this.log('Pre-filter: ' + total + ' posts → ' + p.pool.length + ' candidate leads', 'ink'));
+    at(400, () => { this.setState({ step:2 }); this.log('Scoring ' + p.pool.length + ' leads for buying intent and buying power', 'dim'); });
+    at(1400, () => this.log('Top matches (score ≥ ' + this.state.threshold + '): ' + p.top.length, 'ink'));
+    at(300, () => this.setState({ step:3 }));
+    p.pool.filter(l => l.competitor).forEach(l => at(280, () => this.log('Complaint · ' + l.competitor + ' · ' + l.handle, 'comp')));
+    at(300, () => this.setState({ step:4 }));
+    p.top.forEach(l => at(330, () => this.log('Profiled ' + l.handle + ' (' + l.recent + ' posts) · tone ' + l.tone.toLowerCase() + ' · message drafted', 'dim')));
+    at(300, () => {
+      this.setState({ step:5 });
+      if (this.state.mode === 'review') {
+        const send = {};
+        p.attempts.forEach(l => send[l.id] = 'awaiting'); p.over.forEach(l => send[l.id] = 'over');
+        this.setState({ send });
+        this.log(p.attempts.length + ' messages waiting for approval', 'warn');
+        this.timers.push(setTimeout(() => this.finish(), 50));
+      } else {
+        this.log('Posting up to ' + this.state.cap + ' messages', 'dim');
+        let tt = 0;
+        p.attempts.forEach(l => { tt += this.ms(600); this.timers.push(setTimeout(() => {
+          this.setState(s => ({ send: { ...s.send, [l.id]: l.fail ? 'failed' : 'sent' } }));
+          this.log(l.fail ? 'Failed · ' + l.handle + ' · ' + l.fail : 'Sent · ' + l.kind.toLowerCase() + ' · ' + l.handle, l.fail ? 'bad' : 'ok');
+        }, tt)); });
+        tt += this.ms(400);
+        this.timers.push(setTimeout(() => {
+          this.setState(s => { const send = { ...s.send }; p.over.forEach(l => send[l.id] = 'over'); return { send }; });
+          if (p.over.length) this.log('Send cap reached · ' + p.over.length + ' queued for next run', 'warn');
+          this.finish();
+        }, tt));
+      }
+    });
+  }
+  finish() {
+    const s = this.state; const v = Object.values(s.send);
+    const sent = v.filter(x => x === 'sent').length, failed = v.filter(x => x === 'failed').length;
+    this.log('Run #' + s.runNo + ' complete', 'ok');
+    this.setState(st => ({ step:6, running:false, runs:[{ no:st.runNo, when:'Today ' + st.startedAt, trigger:st.trigger, queries:QUERIES.length, posts:st.scrapedTotal,
+      leads:st.runIds.length, complaints:st.runIds.filter(id => byId(id).competitor).length, sent, failed }, ...st.runs.filter(r => r.no !== st.runNo)] }));
+  }
+  approve(id) {
+    const l = byId(id);
+    this.setState(s => ({ send: { ...s.send, [id]: l.fail ? 'failed' : 'sent' } }));
+    this.log(l.fail ? 'Failed · ' + l.handle + ' · ' + l.fail : 'Sent · ' + l.kind.toLowerCase() + ' · ' + l.handle, l.fail ? 'bad' : 'ok');
+    this.syncRunCounts();
+  }
+  approveAll() { Object.entries(this.state.send).filter(([, v]) => v === 'awaiting').forEach(([id]) => this.approve(id)); }
+  retry(id) {
+    const l = byId(id);
+    this.setState(s => ({ send: { ...s.send, [id]: 'sent' }, sentAs: { ...s.sentAs, [id]: 'DM' } }));
+    this.log('Sent · dm · ' + l.handle, 'ok');
+    this.syncRunCounts();
+  }
+  syncRunCounts() {
+    setTimeout(() => this.setState(s => {
+      const v = Object.values(s.send);
+      return { runs: s.runs.map(r => r.no === s.runNo ? { ...r, sent: v.filter(x => x === 'sent').length, failed: v.filter(x => x === 'failed').length } : r) };
+    }), 0);
+  }
+  startResearch() {
+    if (this.state.research.status === 'running') return;
+    this.setState({ research:{ status:'running', step:0 } });
+    RESEARCH.forEach((_, i) => this.timers.push(setTimeout(() => {
+      const last = i === RESEARCH.length - 1;
+      this.setState(s => ({ research:{ status: last ? 'done' : 'running', step: i + 1 },
+        ...(last && s.clientId === 'rowrun' ? { source:'live' } : {}),
+        ...(last ? { clients: s.clients.map(c => c.id === s.clientId ? { ...c, ready:true } : c) } : {}) }));
+    }, this.ms(900) * (i + 1))));
+  }
+  pickClient(id) {
+    if (this.state.running) return;
+    const c = this.state.clients.find(x => x.id === id);
+    this.setState({ clientId:id, menuOpen:false, adding:false, selectedId:null, researchUrl:c.url,
+      research: c.ready && id !== 'rowrun' ? { status:'done', step:RESEARCH.length } : { status:'idle', step:-1 },
+      view: id === 'rowrun' ? this.state.view : 'leads' });
+  }
+  addClient() {
+    const name = this.state.newName.trim(); if (!name) return;
+    const url = this.state.newUrl.trim() || name.toLowerCase().replace(/\s+/g, '') + '.com';
+    const id = 'c' + Date.now();
+    this.setState(s => ({ clients:[...s.clients, { id, name, url, ready:false }], newName:'', newUrl:'' }), () => { this.pickClient(id); this.startResearch(); });
+  }
+  status(l) {
+    const s = this.state, top = s.topIds.includes(l.id), st = s.send[l.id];
+    if (st === 'sent') return ['Sent', 'ok'];
+    if (st === 'failed') return ['Failed', 'bad'];
+    if (st === 'awaiting') return ['Needs approval', 'warn'];
+    if (st === 'over') return ['Over cap', 'mute'];
+    if (s.step >= 4 && top) return [s.step === 5 && s.running ? 'Queued' : 'Drafted', 'ink'];
+    if (s.step >= 2 && !top) return ['Below threshold', 'faint'];
+    if (s.step >= 2) return ['Scored', 'faint'];
+    return ['Scraped', 'faint'];
+  }
+  row(l) {
+    const s = this.state, P = PLAT[l.platform], [status, k] = this.status(l), scored = s.step >= 2, top = s.topIds.includes(l.id);
+    const flagged = s.step >= 3 && !!l.competitor;
+    return { id:l.id, handle:l.handle, where:l.where, age:l.age, text:l.text, pShort:P.short, pBg:P.bg, pFg:P.fg, platformLabel:P.label,
+      intent: scored ? l.intent : '—', power: scored ? l.power : '—', score: scored ? score(l) : '—',
+      scoreFg: scored && top ? C.ink : (scored ? C.muted : '#c4c0b8'),
+      flagged, noFlag:!flagged, competitor:l.competitor, status, stBg:STATUS[k][0], stFg:STATUS[k][1], stBorder:STATUS[k][2],
+      bg: s.selectedId === l.id ? '#f7f5f1' : '#ffffff', select: () => this.setState({ selectedId: l.id }) };
+  }
+  renderVals() {
+    const s = this.state;
+    const all = s.runIds.slice(0, s.visible).map(byId);
+    const top = all.filter(l => s.topIds.includes(l.id));
+    const comps = s.step >= 3 ? all.filter(l => l.competitor) : [];
+    const sendV = Object.values(s.send);
+    const sentN = sendV.filter(v => v === 'sent').length, failN = sendV.filter(v => v === 'failed').length, awaitN = sendV.filter(v => v === 'awaiting').length;
+    const fl = {
+      all: all, top: s.step >= 2 ? top : [], complaints: comps,
+      sent: all.filter(l => s.send[l.id] === 'sent'), failed: all.filter(l => s.send[l.id] === 'failed')
+    };
+    const filterDefs = [['all','All'],['top','Top matches'],['complaints','Complaints'],['sent','Sent'],['failed','Failed']];
+    const rows = fl[s.filter].map(l => this.row(l));
+    const go = v => () => this.setState({ view: v });
+    const nav = [['leads','Leads', all.length],['runs','Runs', s.runs.length],['client','Client profile',''],['how','How it works',''],['settings','Settings','']]
+      .map(([v, label, count]) => ({ label, count, go: go(v), bg: s.view === v ? '#ebe9e4' : 'transparent', fg: s.view === v ? C.ink : C.muted }));
+    const stepDetail = [
+      `${QUERIES.length} queries · ${QUERIES.filter(q => q[1]).length} complaint`,
+      `${s.scrapedTotal} posts · ${s.runIds.length} leads`,
+      `${s.topIds.length} ≥ ${s.threshold}`,
+      `${s.runIds.filter(id => byId(id).competitor).length} complaints`,
+      `${s.topIds.length} profiles · messages`,
+      `${sentN} sent · ${failN} failed` + (awaitN ? ` · ${awaitN} waiting` : '')
+    ];
+    const steps = STEPS.map((st, i) => {
+      const done = i < s.step || (i === 5 && s.step === 6), active = i === s.step && s.running;
+      return { num:'0' + (i + 1), label:st.label, via:st.via, detail: done || active ? stepDetail[i] : '—',
+        bar: done ? C.ink : (active ? C.accent : '#ece9e4'), fg: done || active ? C.ink : C.faint };
+    });
+    const logColors = { dim:C.muted, ink:C.ink, comp:'oklch(0.48 0.14 320)', ok:'oklch(0.45 0.11 155)', bad:'oklch(0.5 0.15 25)', warn:'oklch(0.5 0.1 65)' };
+    const logs = s.logs.slice(-7).map(l => ({ t:l.t, text:l.text, color:logColors[l.kind] || C.muted }));
+
+    let sel = null;
+    const sl = s.selectedId && byId(s.selectedId);
+    if (sl) {
+      const r = this.row(sl), isTop = s.topIds.includes(sl.id), st = s.send[sl.id];
+      const hasMessage = isTop && s.step >= 4;
+      sel = { ...r, scoreFg: r.scoreFg, recent: sl.recent,
+        intentW: s.step >= 2 ? sl.intent + '%' : '0%', powerW: s.step >= 2 ? sl.power + '%' : '0%',
+        hasProfile: isTop && s.step >= 4, signals: sl.signals, powerEst: sl.powerEst, powerNote: sl.powerNote, toneLabel: sl.tone, toneEvidence: sl.toneEv,
+        hasMessage, noMessage: !hasMessage,
+        noMsgNote: s.step < 2 ? 'Waiting for scoring.' : (!isTop ? `No message. Score ${score(sl)} is below the threshold of ${s.threshold}.` : 'Message is being written.'),
+        message: s.edits[sl.id] ?? sl.message ?? '', kind: s.sentAs[sl.id] || sl.kind,
+        readOnly: st === 'sent' || st === 'failed', taBg: st === 'sent' || st === 'failed' ? '#faf9f7' : '#ffffff',
+        onEdit: e => { const v = e.target.value; this.setState(x => ({ edits: { ...x.edits, [sl.id]: v } })); },
+        isFailed: st === 'failed', failReason: sl.fail, retryLabel: sl.retry || 'Retry', retry: () => this.retry(sl.id),
+        isOver: st === 'over', showApprove: st === 'awaiting', approve: () => this.approve(sl.id) };
+    }
+    const comp = 'oklch(0.48 0.14 320)';
+    const lastRun = s.runs[0];
+    const client = s.clients.find(c => c.id === s.clientId), isRow = s.clientId === 'rowrun';
+    const nr = this.nextRun();
+    return {
+      clientName: client.name, clientUrl: client.url, clientInitial: client.name.charAt(0).toUpperCase(),
+      menuOpen: s.menuOpen, toggleMenu: () => this.setState(x => ({ menuOpen: !x.menuOpen, adding:false })),
+      menuBg: s.menuOpen ? '#ffffff' : 'transparent', menuBorder: s.menuOpen ? '#e3e0da' : 'transparent',
+      clientList: s.clients.map(c => ({ name:c.name, initial:c.name.charAt(0).toUpperCase(), note: c.url + (c.ready ? '' : ' · no profile yet'),
+        check: c.id === s.clientId ? '●' : '', bg: c.id === s.clientId ? '#f5f4f1' : 'transparent', pick: () => this.pickClient(c.id) })),
+      adding: s.adding, notAdding: !s.adding, openAdd: () => this.setState({ adding:true }), cancelAdd: () => this.setState({ adding:false }),
+      newName: s.newName, newUrl: s.newUrl, setNewName: e => this.setState({ newName: e.target.value }), setNewUrl: e => this.setState({ newUrl: e.target.value }),
+      addClient: () => this.addClient(),
+      isNewClient: !isRow && (s.view === 'leads' || s.view === 'client' || s.view === 'runs'), newReady: !isRow && client.ready,
+      setup1Bg: client.ready ? 'oklch(0.42 0.11 155)' : 'oklch(0.56 0.2 27)', setup1Fg: '#ffffff',
+      nav: isRow ? nav : nav.map(n => n.count !== '' ? { ...n, count: 0 } : n),
+      isLeads: isRow && s.view === 'leads', isRuns: isRow && s.view === 'runs', isClient: isRow && s.view === 'client', isHow: s.view === 'how', isSettings: s.view === 'settings',
+      modeLabel: s.mode === 'auto' ? 'Auto' : 'Review', cap: s.cap, threshold: s.threshold,
+      sourceLabel: s.source === 'pdf' ? 'RowRun_Analysis.pdf' : 'Live research of row.run',
+      running: s.running, start: () => this.start('Manual'),
+      toggleSched: () => this.setSched(x => ({ enabled: !x.enabled })),
+      schedTrack: s.sched.enabled ? C.ink : '#d6d2cb', schedKnob: s.sched.enabled ? '21px' : '3px', schedOpacity: s.sched.enabled ? 1 : 0.45,
+      schedTimes: [...s.sched.times].sort().map(t => ({ time:t, remove: () => this.setSched(x => ({ times: x.times.filter(y => y !== t) })) })),
+      newTime: s.newTime, setNewTime: e => this.setState({ newTime: e.target.value }),
+      addTime: () => { const t = s.newTime; if (t) this.setSched(x => ({ times: x.times.includes(t) ? x.times : [...x.times, t] })); },
+      schedDays: [1,2,3,4,5,6,0].map(d => { const on = s.sched.days.includes(d); return { label:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d],
+        bg: on ? C.ink : '#ffffff', fg: on ? '#ffffff' : C.muted, border: on ? C.ink : C.line,
+        toggle: () => this.setSched(x => ({ days: on ? x.days.filter(y => y !== d) : [...x.days, d] })) }; }),
+      nextRun: nr ? nr.label + ' ' + nr.time : 'Off', nextRunShort: nr ? (nr.label === 'Today' ? '' : nr.label.slice(0,3) + ' ') + nr.time : 'Off',
+      tzLabel: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      runSchedNow: () => { this.setState({ view:'leads' }); this.start('Scheduled'); }, findLabel: s.running ? 'Running…' : 'Find leads', findBg: s.running ? '#57534d' : C.accent,
+      liveDot: s.running ? React.createElement('span', { style: { width:7, height:7, borderRadius:'50%', background:'#ffffff', display:'inline-block', animation:'pulse 1s infinite' } }) : null,
+      runMeta: s.running ? 'Run #' + s.runNo + ' in progress' + (s.trigger === 'Scheduled' ? ' · scheduled' : '') : 'Last run #' + s.runNo + ' · ' + s.startedAt + (nr ? ' · next auto ' + nr.label.toLowerCase() + ' ' + nr.time : ''),
+      stats: [
+        { label:'Posts scraped', value: s.step >= 1 ? s.scrapedTotal : '—', color:C.ink },
+        { label:'Leads', value: all.length, color:C.ink },
+        { label:'Top matches', value: s.step >= 2 ? top.length : '—', color:C.accent },
+        { label:'Complaints', value: s.step >= 3 ? comps.length : '—', color:comp },
+        { label:'Sent / cap', value: sentN + ' / ' + s.cap, color:'oklch(0.45 0.11 155)' },
+        { label:'Failed', value: failN, color: failN ? 'oklch(0.5 0.15 25)' : C.ink }
+      ],
+      runTitle: 'Run #' + s.runNo + ' · ' + s.startedAt,
+      runStatus: s.running ? 'Step ' + (s.step + 1) + ' of 6 · ' + STEPS[s.step].label : (awaitN ? 'Waiting for approval' : 'Complete'),
+      steps, logs, showLog: this.props.showLog ?? true,
+      showReviewBar: awaitN > 0, reviewText: awaitN + ' messages are waiting for approval (review mode).', approveAll: () => this.approveAll(),
+      filters: filterDefs.map(([k, label]) => ({ label, count: fl[k].length, go: () => this.setState({ filter:k }),
+        bg: s.filter === k ? '#f2f0ec' : '#ffffff', border: s.filter === k ? '#dcd8d1' : 'transparent' })),
+      rows, emptyRows: rows.length === 0, emptyText: s.running && s.step < 1 ? 'Writing queries…' : 'No leads in this filter.',
+      rowCols: sel ? '26px minmax(0,1fr) 44px 108px' : '26px minmax(0,1fr) 48px 48px 48px 92px 116px',
+      splitCols: sel ? 'minmax(0,1fr) minmax(320px,420px)' : 'minmax(0,1fr)',
+      hasSel: !!sel, sel: sel || {}, closeSel: () => this.setState({ selectedId: null }),
+      runs: s.runs.map(r => ({ ...r, trigFg: r.trigger === 'Scheduled' ? C.ink : C.muted })),
+      researchUrl: s.researchUrl, setUrl: e => this.setState({ researchUrl: e.target.value }),
+      researching: s.research.status === 'running', startResearch: () => this.startResearch(),
+      researchLabel: s.research.status === 'running' ? 'Researching…' : (s.research.status === 'done' ? 'Research again' : 'Research'),
+      researchSteps: RESEARCH.map((label, i) => {
+        const done = i < s.research.step, active = i === s.research.step && s.research.status === 'running';
+        return { label, detail: done ? RESEARCH_DONE[i] : (active ? 'working…' : '—'), bar: done ? C.ink : (active ? C.accent : '#ece9e4'), fg: done || active ? C.ink : C.faint };
+      }),
+      pricing: [{ plan:'Starter', price:'$49 / mo', note:'Core workflows' }, { plan:'Team', price:'$299 / mo', note:'Unlimited workflows, CRM sync' }, { plan:'Enterprise', price:'Custom', note:'SSO, audit log' }],
+      targets: ['Sales teams of 5–50 at B2B SaaS', 'RevOps and Sales Ops without engineering support', 'Founders before their first SDR hire', 'Agencies running outbound for clients'],
+      pains: ['Manual lead research and CRM data entry', 'Enrichment costs that scale per row or credit', 'Fragile multi-step automations nobody owns', 'Slow follow up after calls'],
+      competitors: [
+        { name:'Clay', weak:'Credit-based pricing climbs fast; steep learning curve for non-technical teams', q:'"clay" too expensive OR alternative' },
+        { name:'n8n', weak:'Self-hosting and node maintenance; failures can go unnoticed', q:'"n8n" broke OR maintaining' },
+        { name:'Zapier', weak:'Per-task pricing; long zap chains are brittle', q:'"zapier" sales workflows replace' },
+        { name:'Make', weak:'Operation limits hit mid-month', q:'"make.com" operations limit' }
+      ],
+      queries: QUERIES.map(([text, c]) => ({ text, bg: c ? 'oklch(0.95 0.04 320)' : '#f2f0ec', fg: c ? comp : C.ink })),
+      setAuto: () => this.setState({ mode:'auto' }), setReview: () => this.setState({ mode:'review' }),
+      autoBg: s.mode === 'auto' ? '#ffffff' : 'transparent', reviewBg: s.mode === 'review' ? '#ffffff' : 'transparent',
+      capDown: () => this.setState(x => ({ cap: Math.max(1, x.cap - 1) })), capUp: () => this.setState(x => ({ cap: Math.min(25, x.cap + 1) })),
+      thrDown: () => this.setState(x => ({ threshold: Math.max(40, x.threshold - 5) })), thrUp: () => this.setState(x => ({ threshold: Math.min(95, x.threshold + 5) })),
+      platformRows: Object.keys(PLAT).map(k => ({ label:PLAT[k].label, short:PLAT[k].short, pBg:PLAT[k].bg, pFg:PLAT[k].fg, note:PLAT[k].note,
+        trackBg: s.platforms[k] ? C.ink : '#d6d2cb', knobLeft: s.platforms[k] ? '21px' : '3px',
+        toggle: () => this.setState(x => ({ platforms: { ...x.platforms, [k]: !x.platforms[k] } })) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1305 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mention Scout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- All content lives in config/. This file is the engine: edit it only to change how the demo looks or moves. -->
+<script src="config/brand.js"></script>
+<script src="config/platforms.js"></script>
+<script src="config/scenario.js"></script>
+<style>
+  /* Layout: full-bleed WebGL stage; slim HUD bar on top, floating control dock at the bottom; step 6 opens a browser window over the stage. Light mode only, by request. */
+  /* Fallback values; the real ones come from THEME in config/brand.js and are applied on load. */
+  :root {
+    --bg: #F4F3F2;
+    --dot: #DCD8D6;
+    --ink: #000000;
+    --muted: #625D5B;
+    --line: #E2DEDC;
+    --surface: #FFFFFF;
+    --accent: #7C1010;
+    --accent-hover: #5E0B0B;
+    --accent-soft: #F6ECEC;
+    --f-ui: "Rubik", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: light;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--f-ui); overflow: hidden; }
+  #stage {
+    position: fixed; inset: 0;
+    background: radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0) 0 0 / 22px 22px, var(--bg);
+  }
+  #stage canvas { display: block; }
+
+  .hud {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 2;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
+    pointer-events: none;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .brand img { height: 22px; width: auto; display: block; }
+  .brand b { font-size: 13px; font-weight: 600; padding-left: 12px; border-left: 1px solid var(--line); }
+  .brand span { font: 500 11px var(--f-ui); color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .steps { display: flex; gap: 6px; flex-wrap: wrap; }
+  .step {
+    font: 500 11.5px var(--f-ui); letter-spacing: 0.02em;
+    padding: 6px 10px; border-radius: 999px;
+    background: rgba(255,255,255,0.75); border: 1px solid var(--line); color: var(--muted);
+    transition: background .25s, color .25s, border-color .25s;
+  }
+  .step.done { color: var(--ink); }
+  .step.on { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+
+  .dock {
+    position: fixed; left: 50%; transform: translateX(-50%); z-index: 5;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    width: max-content; max-width: calc(100% - 32px);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+    padding: 6px 6px 6px 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 10px 30px -12px rgba(18,22,29,0.22), 0 1px 2px rgba(18,22,29,0.06);
+  }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--muted); min-width: 0; margin-right: 6px; }
+  .status i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+  .dock.busy .status i { animation: pulse 0.9s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.25; transform: scale(0.7); } }
+  .status span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+  button {
+    font: 600 13.5px var(--f-ui); border-radius: 10px; padding: 9px 14px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: background .15s, transform .1s, opacity .2s;
+  }
+  button:hover { background: #F7F5F4; }
+  button:active { transform: scale(0.97); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button:disabled { opacity: 0.45; cursor: default; transform: none; }
+  button svg { width: 15px; height: 15px; }
+
+  /* ---- step 6: browser window with the tailored page ---- */
+  .scrim { position: fixed; inset: 0; z-index: 3; background: rgba(240,237,235,0.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; transition: opacity .4s; }
+  .browser {
+    position: fixed; z-index: 4;
+    top: calc(env(safe-area-inset-top, 0px) + 62px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+    left: 50%; width: min(1080px, calc(100% - 32px)); margin-left: max(-540px, calc(-50% + 16px));
+    display: flex; flex-direction: column; overflow: hidden;
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 40px 80px -30px rgba(18,22,29,0.35), 0 2px 6px rgba(18,22,29,0.06);
+    transform-origin: 0 0;
+  }
+  .bar { display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 14px; background: #F5F3F2; border-bottom: 1px solid var(--line); }
+  .bar .dots { display: flex; gap: 6px; flex: none; }
+  .bar .dots i { width: 11px; height: 11px; border-radius: 50%; background: #DCD8D6; }
+  .bar .url {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+    font: 500 12.5px var(--f-ui); color: var(--muted);
+  }
+  .bar .url span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar .url b { color: var(--ink); font-weight: 500; }
+  .bar .url svg { width: 12px; height: 12px; flex: none; }
+  .tabs { display: flex; gap: 4px; flex: none; }
+  .tabs button { padding: 3px 10px 3px 3px; gap: 6px; font-size: 12.5px; border-radius: 999px; background: transparent; border-color: transparent; color: var(--muted); }
+  .tabs button img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
+  .tabs button[aria-pressed="true"] { background: #fff; border-color: var(--line); color: var(--ink); }
+  .bar .close { padding: 6px; border-radius: 8px; background: transparent; border-color: transparent; }
+  .bar .close svg { width: 16px; height: 16px; }
+  .page { flex: 1; overflow: auto; background: #FBFAF9; }
+
+  .lp { --b: var(--accent); --b-soft: var(--accent-soft); --ink2: #4A4543; color: var(--ink); opacity: 0; }
+  .lp.go { opacity: 1; }
+  .lp.go > * { animation: rise .55s cubic-bezier(.2,.8,.2,1) both; }
+  .lp.go > :nth-child(2) { animation-delay: .06s; }
+  .lp.go > :nth-child(3) { animation-delay: .14s; }
+  .lp.go > :nth-child(4) { animation-delay: .22s; }
+  .lp.go > :nth-child(5) { animation-delay: .3s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+  .lp-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 32px; background: #fff; border-bottom: 1px solid #ECEEF3; flex-wrap: wrap; }
+  .logo img { height: 24px; width: auto; display: block; }
+  .made { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); background: #F5F3F2; padding: 4px 12px 4px 4px; border-radius: 999px; }
+  .made img, .said img { border-radius: 50%; object-fit: cover; }
+  .made img { width: 26px; height: 26px; }
+  .made b { color: var(--ink); font-weight: 600; }
+  .hero { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; padding: 52px 32px 36px; align-items: center; }
+  .eyebrow { font: 500 12px var(--f-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--b); }
+  .hero h1 { font-size: clamp(30px, 4.2vw, 50px); line-height: 1.04; letter-spacing: -0.025em; font-weight: 700; margin: 14px 0 16px; text-wrap: balance; }
+  .hero .sub { font-size: 17px; line-height: 1.55; color: var(--ink2); max-width: 52ch; margin: 0; }
+  .ctas { display: flex; gap: 10px; margin-top: 26px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; padding: 12px 18px; border-radius: 10px; font-weight: 600; font-size: 15px; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+  .btn.p { background: var(--b); border-color: var(--b); color: #fff; }
+  .said { background: #fff; border: 1px solid #E4E7ED; border-radius: 16px; padding: 18px; box-shadow: 0 18px 40px -24px rgba(18,22,29,0.25); }
+  .said .who { display: flex; align-items: center; gap: 10px; }
+  .said .who img { width: 40px; height: 40px; }
+  .said .who span { font-size: 13px; color: var(--muted); }
+  .said .who b { display: block; color: var(--ink); font-size: 14.5px; }
+  .said .src { margin-left: auto; font: 500 10.5px var(--f-ui); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .said p { font-size: 15px; line-height: 1.5; margin: 12px 0 0; }
+  .delta { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px dashed #E1E5EC; }
+  .delta div b { display: block; font-size: 26px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .delta div span { font-size: 12.5px; color: var(--muted); }
+  .delta .before b { color: #9AA3B2; text-decoration: line-through; text-decoration-thickness: 2px; }
+  .delta .after b { color: var(--b); }
+  .delta svg { width: 22px; height: 22px; color: #9AA3B2; margin-bottom: 18px; }
+  .how { padding: 12px 32px 36px; }
+  .how h2, .offer h2 { font-size: 22px; letter-spacing: -0.02em; margin: 0 0 16px; }
+  .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .how-grid div { background: #fff; border: 1px solid #E8EBF0; border-radius: 14px; padding: 18px; }
+  .how-grid em { font: 500 11px var(--f-ui); font-style: normal; color: var(--b); }
+  .how-grid b { display: block; font-size: 16px; margin: 8px 0 6px; }
+  .how-grid p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink2); }
+  .offer { padding: 8px 32px 40px; }
+  .offer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  .plan { background: #fff; border: 2px solid var(--b); border-radius: 18px; padding: 24px; position: relative; }
+  .plan .tag { position: absolute; top: -12px; left: 20px; background: var(--b); color: #fff; font: 600 10.5px var(--f-ui); padding: 4px 10px; border-radius: 999px; letter-spacing: .08em; }
+  .plan h3 { margin: 4px 0 0; font-size: 15px; color: var(--muted); font-weight: 600; }
+  .price { display: flex; align-items: baseline; gap: 6px; margin: 6px 0 14px; }
+  .price b { font-size: 44px; letter-spacing: -0.03em; }
+  .price span { color: var(--muted); font-size: 14px; }
+  .deal { background: var(--b-soft); color: var(--b); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-weight: 600; line-height: 1.4; }
+  .plan ul { list-style: none; padding: 0; margin: 16px 0 20px; display: grid; gap: 9px; }
+  .plan li { display: flex; gap: 9px; font-size: 14.5px; align-items: flex-start; }
+  .plan li::before { content: ""; flex: none; width: 16px; height: 16px; margin-top: 2px; border-radius: 50%; background: var(--b-soft) var(--check) center/16px no-repeat; }
+  .plan .btn { width: 100%; justify-content: center; }
+  .why h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .why p { font-size: 15px; line-height: 1.6; color: var(--ink2); margin: 0 0 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips span { font-size: 12.5px; padding: 5px 10px; border-radius: 999px; background: #F3F1F0; color: var(--ink2); }
+  .lp-foot { padding: 18px 32px 28px; border-top: 1px solid #ECEEF3; font-size: 12.5px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+  @media (max-width: 760px) {
+    .hero, .offer-grid, .how-grid { grid-template-columns: 1fr; }
+    .hero { padding: 32px 20px 24px; gap: 24px; }
+    .lp-nav, .how, .offer, .lp-foot { padding-left: 20px; padding-right: 20px; }
+    .tabs button span { display: none; }
+    .tabs button { padding: 3px; }
+  }
+  @media (max-width: 640px) { .brand span { display: none; } .status { flex-basis: 100%; justify-content: center; margin: 2px 0 0; } .dock { padding: 6px; } .step { padding: 5px 8px; } .bar .dots { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .lp.go > * { animation: none; } }
+</style>
+
+<div id="stage"></div>
+
+<header class="hud">
+  <div class="brand"><img id="hudLogo" alt=""><b id="hudProduct"></b><span id="hudScope"></span></div>
+  <div class="steps" aria-label="Progress">
+    <div class="step" id="s1">1 Collect</div>
+    <div class="step" id="s2">2 Match</div>
+    <div class="step" id="s3">3 Plan</div>
+    <div class="step" id="s4">4 Tone</div>
+    <div class="step" id="s5">5 Reply</div>
+    <div class="step" id="s6">6 Page</div>
+  </div>
+</header>
+
+<div class="scrim" id="scrim" hidden></div>
+<section class="browser" id="browser" hidden aria-label="Tailored landing page">
+  <div class="bar">
+    <span class="dots"><i></i><i></i><i></i></span>
+    <div class="url">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+      <span id="url"></span>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <button class="close" id="close" type="button" aria-label="Close page" title="Close (Esc)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+    </button>
+  </div>
+  <div class="page" id="page"></div>
+</section>
+
+<div class="dock" id="dock">
+  <div class="status" role="status" aria-live="polite"><i></i><span id="status">Loading…</span></div>
+  <button id="reset" type="button" title="Restart (R)">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8a5.5 5.5 0 1 0 1.7-4"/><path d="M2.5 2.5v3h3"/></svg>
+    Reset
+  </button>
+  <button id="next" type="button" class="primary" title="Next step (→)" disabled>
+    <span id="nextLabel">Next</span>
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+  </button>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+/* ---------- config ---------- */
+// BRAND, THEME, PLATFORMS, COPY, PLANS, TONES, POSTS and PICKS come from config/*.js (classic scripts, so this works from file:// too).
+const OFFER_ENDS = COPY.offerEnds;
+
+// Check the rules the layout depends on. Returns the first problem as a sentence, or null.
+function configError() {
+  if (PLANS.length !== 3) return `PLANS needs exactly 3 entries, found ${PLANS.length} (config/scenario.js)`;
+  if (TONES.length !== 4) return `TONES needs exactly 4 entries, found ${TONES.length} (config/scenario.js)`;
+  if (PICKS.length !== 3) return `PICKS needs exactly 3 entries, found ${PICKS.length} (config/scenario.js)`;
+  for (const P of PICKS) {
+    const i = POSTS.findIndex(p => p.id === P.post);
+    if (i < 0) return `PICK "${P.name}" points at post id "${P.post}", which no post in POSTS has`;
+    P.idx = i;
+    const bad = P.profiles.find(([pl]) => !PLATFORMS[pl]);
+    if (bad) return `PICK "${P.name}" uses platform "${bad[0]}", which config/platforms.js does not define`;
+    if (P.profiles.length > 6) return `PICK "${P.name}" has ${P.profiles.length} profiles, the most is 6`;
+    if (P.plan.probs.length !== PLANS.length || !PLANS[P.plan.pick]) return `PICK "${P.name}": plan.probs needs one value per plan and plan.pick a valid index`;
+    if (P.tone.scores.length !== TONES.length || !TONES[P.tone.pick]) return `PICK "${P.name}": tone.scores needs one value per tone and tone.pick a valid index`;
+    if (P.page.steps.length !== 3) return `PICK "${P.name}": page.steps needs exactly 3 rows`;
+  }
+  for (const p of POSTS) if (p.kind !== 'x' && p.kind !== 'r') return `Post ${JSON.stringify(p).slice(0, 60)}… has kind "${p.kind}", use 'x' or 'r'`;
+  return null;
+}
+
+// hex colour + alpha -> rgba(), for glows and tints derived from the accent
+function alpha(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`;
+}
+
+function applyTheme() {
+  const css = document.documentElement.style;
+  const vars = { bg: THEME.bg, dot: THEME.dot, ink: THEME.ink, muted: THEME.muted, line: THEME.line, surface: THEME.surface,
+    accent: THEME.accent, 'accent-hover': THEME.accentHover, 'accent-soft': THEME.accentSoft };
+  for (const k in vars) css.setProperty('--' + k, vars[k]);
+  css.setProperty('--f-ui', `"${THEME.font}", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`);
+  const tick = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='${THEME.accent}' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>`;
+  css.setProperty('--check', `url("data:image/svg+xml,${encodeURIComponent(tick)}")`);
+  const font = document.createElement('link'); font.rel = 'stylesheet'; font.href = THEME.fontUrl;
+  document.head.appendChild(font);
+  document.title = `${BRAND.name} ${COPY.product}`;
+  document.getElementById('hudLogo').src = BRAND.lockup;
+  document.getElementById('hudLogo').alt = BRAND.name;
+  document.getElementById('hudProduct').textContent = COPY.product;
+  document.getElementById('hudScope').textContent = COPY.scope;
+}
+applyTheme();
+
+/* ---------- constants ---------- */
+const INK = THEME.ink, MUTED = THEME.muted, ACCENT = THEME.accent, BLACK = THEME.ink, TRACK = '#EFECEA', OFF = '#C9C3C0';
+const FONT = `"${THEME.font}", system-ui, -apple-system, sans-serif`;
+const TS = 2;                         // canvas supersampling
+const CW = 420, CH = 260, CM = 24;    // post card px + shadow margin
+const CARD_W = 3.2, U = CARD_W / CW;  // world units per card px
+const CARD_H = CH * U;
+const NW = 250, NH = 78, NM = 14;     // profile node px
+const PW = 420, PH = 236, PM = 18;    // plan / tone panel px
+const RW = 420, RH = 296;             // reply px (shares PM)
+const PERIOD = 6000;                  // hover loop length (ms), every motion is a whole multiple of it
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const HOVER = reduced ? 0.3 : 1;
+const TAU = Math.PI * 2;
+
+// Column layout for steps 3–6, relative to each column's origin
+const Y_CARD = 1.25;
+const CARD_BOTTOM = Y_CARD - CARD_H / 2;
+const STRIP_Y = CARD_BOTTOM - 0.27;
+const PANEL_Y = STRIP_Y - 0.25 - PH * U / 2;
+const NODE_Y = [STRIP_Y - 0.56, STRIP_Y - 1.12, STRIP_Y - 1.68];
+const NODE_X = 0.79, NODE_S = 0.72;
+const REPLY_Y = CARD_BOTTOM - 0.3 - RH * U / 2;
+const COL_GAP = 0.8, COL_STEP_V = 5.6;
+const COL_CENTER_Y = 0.12, COL_H = 5.3;
+
+/* ---------- photos ---------- */
+// Casual-looking crops and colour grades so the faces read like phone photos, not studio headshots.
+const PHOTOS = {};
+const GRADES = ['saturate(1.25) contrast(1.05)', 'sepia(0.28) saturate(1.2) brightness(1.04)', 'brightness(1.1) saturate(0.8) contrast(0.95)',
+  'contrast(1.12) saturate(1.35) hue-rotate(-8deg)', 'grayscale(1) contrast(1.12)', 'saturate(1.1) brightness(0.96) hue-rotate(6deg)'];
+// photo ids like 'f14' resolve to assets/faces/f14.jpg; anything with a dot or slash is used as a path/URL as-is
+const photoSrc = id => /[./]/.test(id) ? id : `assets/faces/${id}.jpg`;
+function look(id) {
+  const n = /^f\d+$/.test(id) ? parseInt(id.slice(1), 10) : hueOf(id);
+  return { z: 1.18 + ((n * 37) % 30) / 100, ox: (((n * 13) % 7) - 3) / 100, oy: (((n * 7) % 5) - 2) / 100 + 0.03, f: GRADES[n % GRADES.length] };
+}
+function loadPhotos() {
+  const ids = new Set([...POSTS.map(p => p.photo), ...PICKS.map(p => p.photo), ...PICKS.flatMap(p => p.profiles.map(pr => pr[3]))].filter(Boolean));
+  return Promise.all([...ids].map(id => new Promise(res => {
+    const im = new Image();
+    im.onload = () => { PHOTOS[id] = im; res(); };
+    im.onerror = res;
+    im.src = photoSrc(id);
+  })));
+}
+const BRAND_IMG = {};
+function loadBrand() {
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => { BRAND_IMG.mark = im; res(); };
+    im.onerror = res;
+    im.src = BRAND.mark;
+  });
+}
+// red disc with the white Needora mark, used wherever we post as the brand
+function brandAvatar(g, x, y, r) {
+  g.fillStyle = ACCENT; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  if (BRAND_IMG.mark) { const w = r * 1.3, h = w * BRAND_IMG.mark.naturalHeight / BRAND_IMG.mark.naturalWidth; g.drawImage(BRAND_IMG.mark, x - w / 2, y - h / 2, w, h); }
+}
+function photoCircle(g, id, x, y, r) {
+  const im = id && PHOTOS[id];
+  if (!im) return false;
+  const L = look(id), s = 2 * r * L.z;
+  g.save();
+  g.beginPath(); g.arc(x, y, r, 0, TAU); g.clip();
+  g.filter = L.f;
+  g.drawImage(im, x - s / 2 + L.ox * s, y - s / 2 + L.oy * s, s, s);
+  g.restore();
+  return true;
+}
+const photoStyle = id => { const L = look(id); return `filter:${L.f};transform:scale(${L.z}) translate(${-L.ox * 100}%, ${-L.oy * 100}%)`; };
+
+/* ---------- canvas drawing ---------- */
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w * TS; c.height = h * TS;
+  const g = c.getContext('2d'); g.scale(TS, TS);
+  return [c, g];
+}
+function layoutLines(g, text, maxW) {
+  const lines = []; let line = '';
+  for (const w of text.split(' ')) {
+    const t = line ? line + ' ' + w : w;
+    if (g.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+// draws wrapped text, returns [baseline of last line, x where the last line ends]
+function wrap(g, text, x, y, maxW, lh, maxLines) {
+  let lines = layoutLines(g, text, maxW);
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    let last = lines[maxLines - 1];
+    while (g.measureText(last + '…').width > maxW) last = last.slice(0, -1);
+    lines[maxLines - 1] = last.trimEnd() + '…';
+  }
+  lines.forEach((l, i) => g.fillText(l, x, y + i * lh));
+  const n = Math.max(lines.length, 1);
+  return [y + (n - 1) * lh, x + (lines.length ? g.measureText(lines[n - 1]).width : 0)];
+}
+function fit(g, text, maxW) {
+  if (g.measureText(text).width <= maxW) return text;
+  while (text && g.measureText(text + '…').width > maxW) text = text.slice(0, -1);
+  return text + '…';
+}
+function hueOf(s) { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; }
+function avatar(g, x, y, r, name, photo) {
+  if (photoCircle(g, photo, x, y, r)) return;
+  const h = hueOf(name);
+  g.fillStyle = `hsl(${h} 60% 89%)`; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  g.fillStyle = `hsl(${h} 45% 30%)`; g.font = `600 ${r * 0.78}px ${FONT}`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(), x, y + 1);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+}
+function surface(g, w, h, r, border = '#E7E3E1', blur = 18) {
+  g.save();
+  g.shadowColor = 'rgba(22,32,58,0.13)'; g.shadowBlur = blur; g.shadowOffsetY = blur / 3;
+  g.fillStyle = '#fff'; g.beginPath(); g.roundRect(0, 0, w, h, r); g.fill();
+  g.restore();
+  g.strokeStyle = border; g.lineWidth = 1; g.beginPath(); g.roundRect(0.5, 0.5, w - 1, h - 1, r); g.stroke();
+}
+function label(g, text, x, y, color = MUTED) {
+  g.fillStyle = color; g.font = `500 10.5px ${FONT}`; g.fillText(text, x, y);
+}
+
+function drawCard(p) {
+  const [c, g] = makeCanvas(CW + CM * 2, CH + CM * 2);
+  g.translate(CM, CM);
+  surface(g, CW, CH, 16);
+  if (p.kind === 'x') {
+    avatar(g, 42, 42, 21, p.name, p.photo);
+    g.fillStyle = INK; g.font = `600 16px ${FONT}`; g.fillText(p.name, 72, 38);
+    g.fillStyle = MUTED; g.font = `400 14px ${FONT}`; g.fillText(`@${p.handle} · ${p.time}`, 72, 57);
+    g.fillStyle = '#0F1419'; g.beginPath(); g.roundRect(374, 22, 26, 26, 7); g.fill();
+    g.fillStyle = '#fff'; g.font = `700 15px ${FONT}`; g.textAlign = 'center'; g.fillText('X', 387, 40); g.textAlign = 'left';
+    g.fillStyle = INK; g.font = `400 16.5px ${FONT}`;
+    wrap(g, p.text, 22, 96, 378, 23.5, 5);
+    g.font = `500 13px ${FONT}`;
+    let x = 22;
+    for (const [n, l] of [[p.replies, 'replies'], [p.reposts, 'reposts'], [p.likes, 'likes']]) {
+      g.fillStyle = INK; g.fillText(String(n), x, 238); x += g.measureText(String(n)).width + 4;
+      g.fillStyle = MUTED; g.fillText(l, x, 238); x += g.measureText(l).width + 18;
+    }
+  } else {
+    g.fillStyle = '#FF4500'; g.beginPath(); g.arc(36, 36, 15, 0, TAU); g.fill();
+    g.fillStyle = '#fff'; g.font = `700 12px ${FONT}`; g.textAlign = 'center'; g.fillText('r/', 36, 40); g.textAlign = 'left';
+    g.fillStyle = INK; g.font = `700 13.5px ${FONT}`; g.fillText('r/' + p.sub, 60, 32);
+    g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText(`u/${p.user} · ${p.time}`, 60, 50);
+    g.fillStyle = '#FF4500'; g.font = `700 14px ${FONT}`; g.textAlign = 'right'; g.fillText('reddit', 398, 40); g.textAlign = 'left';
+    g.fillStyle = INK; g.font = `700 17.5px ${FONT}`;
+    const [ty] = wrap(g, p.title, 22, 92, 376, 23, 2);
+    g.fillStyle = MUTED; g.font = `400 14.5px ${FONT}`;
+    wrap(g, p.text, 22, ty + 27, 376, 20.5, 3);
+    g.fillStyle = '#F2F3F5';
+    g.beginPath(); g.roundRect(20, 216, 88, 28, 14); g.fill();
+    g.font = `700 13px ${FONT}`; g.fillStyle = '#FF4500'; g.fillText('▲', 32, 235);
+    g.fillStyle = INK; g.fillText(String(p.ups), 50, 235);
+    g.fillStyle = MUTED; g.fillText('▼', 50 + g.measureText(String(p.ups)).width + 8, 235);
+    const ct = `${p.comments} comments`; g.font = `600 13px ${FONT}`;
+    const cw = g.measureText(ct).width + 28;
+    g.fillStyle = '#F2F3F5'; g.beginPath(); g.roundRect(116, 216, cw, 28, 14); g.fill();
+    g.fillStyle = MUTED; g.fillText(ct, 130, 235);
+  }
+  return c;
+}
+
+function drawGlow() {
+  const [c, g] = makeCanvas(CW + CM * 2, CH + CM * 2);
+  g.translate(CM, CM);
+  g.shadowColor = alpha(ACCENT, 0.5); g.shadowBlur = 16;
+  g.strokeStyle = ACCENT; g.lineWidth = 2.5;
+  g.beginPath(); g.roundRect(0, 0, CW, CH, 16); g.stroke();
+  return c;
+}
+
+function drawBadge(text, color, outline) {
+  const [, m] = makeCanvas(1, 1); m.font = `600 13px ${FONT}`;
+  const w = Math.ceil(m.measureText(text).width) + 30, h = 30;
+  const [c, g] = makeCanvas(w, h);
+  g.fillStyle = outline ? '#fff' : color; g.beginPath(); g.roundRect(0.75, 0.75, w - 1.5, h - 1.5, 14.25); g.fill();
+  if (outline) { g.strokeStyle = color; g.lineWidth = 1.5; g.stroke(); }
+  const fg = outline ? color : '#fff';
+  g.fillStyle = fg; g.beginPath(); g.arc(13, 15, 3, 0, TAU); g.fill();
+  g.font = `600 13px ${FONT}`; g.fillText(text, 22, 19.5);
+  return { canvas: c, w, h };
+}
+
+function glyphBox(g, P, x, y, size, radius) {
+  g.fillStyle = P.color; g.beginPath(); g.roundRect(x, y, size, size, radius); g.fill();
+  g.fillStyle = '#fff'; g.font = `700 ${Math.round(size * (P.glyph.length > 2 ? 0.3 : 0.4))}px ${FONT}`;
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(P.glyph, x + size / 2, y + size / 2 + 0.5);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+}
+
+function drawNode(platform, handle, detail, photo) {
+  const P = PLATFORMS[platform];
+  const [c, g] = makeCanvas(NW + NM * 2, NH + NM * 2);
+  g.translate(NM, NM);
+  surface(g, NW, NH, 12, '#E7E3E1', 12);
+  if (photoCircle(g, photo, 36, 39, 22)) {
+    g.fillStyle = '#fff'; g.beginPath(); g.roundRect(43, 45, 22, 22, 6); g.fill();
+    glyphBox(g, P, 45, 47, 18, 5);
+  } else {
+    glyphBox(g, P, 14, 17, 44, 11);
+  }
+  label(g, P.label.toUpperCase(), 72, 28);
+  g.fillStyle = '#16A34A'; g.beginPath(); g.arc(NW - 16, 24, 4, 0, TAU); g.fill();
+  g.fillStyle = INK; g.font = `600 15px ${FONT}`; g.fillText(fit(g, handle, 164), 72, 48);
+  g.fillStyle = MUTED; g.font = `400 12px ${FONT}`; g.fillText(fit(g, detail, 164), 72, 65);
+  return c;
+}
+
+// row of linked platform icons that sits under the post once the crawl collapses
+function drawStrip(g, pk) {
+  pk.profiles.forEach(([pl], j) => glyphBox(g, PLATFORMS[pl], j * 27, 4, 22, 6));
+  g.fillStyle = MUTED; g.font = `500 12.5px ${FONT}`;
+  g.fillText(`${pk.profiles.length} profiles linked`, pk.profiles.length * 27 + 6, 20);
+}
+
+function drawPlan(g, pk, p) {
+  const pl = pk.plan, e = E.outCubic(p), sel = p > 0.72;
+  surface(g, PW, PH, 14);
+  label(g, 'PURCHASE INTENT', 20, 30);
+  g.textAlign = 'right'; g.fillStyle = INK; g.font = `600 12.5px ${FONT}`;
+  g.fillText(`${Math.round(pl.conf * e)}% confidence`, PW - 20, 30); g.textAlign = 'left';
+  PLANS.forEach((t, r) => {
+    const y = 44 + r * 42, on = sel && r === pl.pick, v = pl.probs[r] * e;
+    if (on) { g.fillStyle = 'rgba(0,0,0,0.05)'; g.beginPath(); g.roundRect(10, y, PW - 20, 38, 9); g.fill(); }
+    g.fillStyle = on ? BLACK : INK; g.font = `600 14px ${FONT}`; g.fillText(t.name, 20, y + 17);
+    g.fillStyle = MUTED; g.font = `400 12px ${FONT}`; g.fillText(`$${t.price}/mo`, 20, y + 32);
+    g.fillStyle = TRACK; g.beginPath(); g.roundRect(108, y + 14, 240, 9, 4.5); g.fill();
+    g.fillStyle = on ? BLACK : OFF; g.beginPath(); g.roundRect(108, y + 14, Math.max(9, 240 * v / 100), 9, 4.5); g.fill();
+    g.textAlign = 'right'; g.fillStyle = on ? BLACK : INK; g.font = `600 13.5px ${FONT}`;
+    g.fillText(`${Math.round(v)}%`, PW - 20, y + 23); g.textAlign = 'left';
+  });
+  label(g, 'SIGNALS', 20, 188);
+  g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`;
+  wrap(g, pl.signals, 20, 206, PW - 40, 17, 2);
+}
+
+function drawTone(g, pk, p) {
+  const t = pk.tone, e = E.outCubic(p), sel = p > 0.72;
+  surface(g, PW, PH, 14);
+  label(g, 'REPLY TONE', 20, 30);
+  if (sel) {
+    g.textAlign = 'right'; g.fillStyle = ACCENT; g.font = `600 12.5px ${FONT}`;
+    g.fillText(`Go ${TONES[t.pick].toLowerCase()}`, PW - 20, 30); g.textAlign = 'left';
+  }
+  TONES.forEach((name, r) => {
+    const y = 42 + r * 34, on = sel && r === t.pick, v = t.scores[r] * e;
+    if (on) { g.fillStyle = alpha(ACCENT, 0.07); g.beginPath(); g.roundRect(10, y, PW - 20, 30, 8); g.fill(); }
+    g.fillStyle = on ? ACCENT : INK; g.font = `600 13.5px ${FONT}`; g.fillText(name, 20, y + 20);
+    g.fillStyle = TRACK; g.beginPath(); g.roundRect(100, y + 11, 248, 9, 4.5); g.fill();
+    g.fillStyle = on ? ACCENT : OFF; g.beginPath(); g.roundRect(100, y + 11, Math.max(9, 248 * v / 100), 9, 4.5); g.fill();
+    g.textAlign = 'right'; g.fillStyle = on ? ACCENT : INK; g.font = `600 13.5px ${FONT}`;
+    g.fillText(`${Math.round(v)}`, PW - 20, y + 20); g.textAlign = 'left';
+  });
+  label(g, 'WHY', 20, 192);
+  g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`;
+  wrap(g, t.why, 20, 210, PW - 40, 17, 2);
+}
+
+// Reply = short text, typed out, then our link and its preview card. p runs 0..1.25: typing, then the card fades in.
+const REPLY_TEXT_Y = 82, REPLY_LH = 21;
+function drawReply(g, pk, p) {
+  const post = POSTS[pk.idx], isX = post.kind === 'x';
+  surface(g, RW, RH, 14, alpha(ACCENT, 0.2));
+  const ax = isX ? 40 : 36, ay = isX ? 36 : 34, ar = isX ? 20 : 15;
+  brandAvatar(g, ax, ay, ar);
+  let x;
+  const bodyFont = `400 ${isX ? 15.5 : 15}px ${FONT}`;
+  if (isX) {
+    g.fillStyle = INK; g.font = `600 15px ${FONT}`; g.fillText(BRAND.name, 70, 32);
+    x = 70 + g.measureText(BRAND.name).width + 6;
+    g.fillStyle = MUTED; g.font = `400 13.5px ${FONT}`; g.fillText(`@${BRAND.handle} · now`, x, 32);
+    g.font = `400 13px ${FONT}`; g.fillText('Replying to ', 70, 52);
+    g.fillStyle = '#1D9BF0'; g.fillText('@' + post.handle, 70 + g.measureText('Replying to ').width, 52);
+  } else {
+    g.fillStyle = INK; g.font = `700 13px ${FONT}`; g.fillText('u/' + BRAND.reddit, 60, 31);
+    x = 60 + g.measureText('u/' + BRAND.reddit).width + 6;
+    g.fillStyle = THEME.accentSoft; g.beginPath(); g.roundRect(x, 19, 58, 16, 4); g.fill();
+    g.fillStyle = ACCENT; g.font = `600 9.5px ${FONT}`; g.fillText('OFFICIAL', x + 6, 31);
+    g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText('· just now', x + 64, 31);
+    g.fillText('replying to u/' + post.user, 60, 49);
+  }
+
+  g.font = bodyFont;
+  const text = pk.reply, url = pk.link.url, total = text.length + url.length;
+  const chars = Math.round(total * Math.min(p, 1));
+  const nLines = Math.min(3, layoutLines(g, text, RW - 40).length);
+  const urlY = REPLY_TEXT_Y + nLines * REPLY_LH;
+  g.fillStyle = INK;
+  let [cy, cx] = wrap(g, text.slice(0, chars), 20, REPLY_TEXT_Y, RW - 40, REPLY_LH, 3);
+  const urlShown = url.slice(0, Math.max(0, chars - text.length));
+  if (urlShown) {
+    g.fillStyle = isX ? '#1D9BF0' : ACCENT; g.font = `500 ${isX ? 15.5 : 15}px ${FONT}`;
+    g.fillText(urlShown, 20, urlY); cy = urlY; cx = 20 + g.measureText(urlShown).width;
+  }
+  if (p < 1) { g.fillStyle = ACCENT; g.fillRect(cx + 2, cy - 14, 2, 18); }
+
+  // link preview
+  const top = urlY + 14; pk._linkTop = top;
+  const a = Math.max(0, Math.min(1, (p - 1) / 0.25));
+  if (a > 0) {
+    g.save(); g.globalAlpha = a; g.translate(0, (1 - a) * 8);
+    g.fillStyle = '#fff'; g.strokeStyle = '#DFE3EA'; g.lineWidth = 1;
+    g.beginPath(); g.roundRect(20.5, top + 0.5, RW - 41, 90, 12); g.fill(); g.stroke();
+    g.save(); g.beginPath(); g.roundRect(21, top + 1, 96, 89, [11, 0, 0, 11]); g.clip();
+    const grad = g.createLinearGradient(21, top, 117, top + 90);
+    grad.addColorStop(0, ACCENT); grad.addColorStop(1, THEME.accentDeep);
+    g.fillStyle = grad; g.fillRect(21, top + 1, 96, 89);
+    if (BRAND_IMG.mark) g.drawImage(BRAND_IMG.mark, 29, top + 9, 27, 27 * BRAND_IMG.mark.naturalHeight / BRAND_IMG.mark.naturalWidth);
+    g.fillStyle = '#fff'; g.font = `700 12.5px ${FONT}`;
+    wrap(g, pk.link.thumb, 29, top + 34, 80, 15, 3);
+    g.restore();
+    g.fillStyle = MUTED; g.font = `400 11.5px ${FONT}`; g.fillText(url.split('/')[0], 130, top + 24);
+    g.fillStyle = INK; g.font = `600 14px ${FONT}`; g.fillText(fit(g, pk.link.title, RW - 170), 130, top + 45);
+    g.fillStyle = MUTED; g.font = `400 12.5px ${FONT}`; g.fillText(fit(g, pk.link.desc, RW - 170), 130, top + 66);
+    g.restore();
+  }
+
+  if (p >= 1.25) {
+    g.fillStyle = MUTED; g.font = `500 12px ${FONT}`;
+    g.fillText(`${PLANS[pk.plan.pick].name} plan · ${TONES[pk.tone.pick]} tone`, 20, RH - 14);
+    g.fillStyle = ACCENT; g.beginPath(); g.roundRect(RW - 108, RH - 32, 88, 26, 13); g.fill();
+    g.fillStyle = '#fff'; g.font = `600 13px ${FONT}`; g.textAlign = 'center'; g.fillText(isX ? 'Reply' : 'Comment', RW - 64, RH - 14); g.textAlign = 'left';
+  } else {
+    g.fillStyle = MUTED; g.font = `500 12px ${FONT}`; g.fillText('Drafting…', 20, RH - 14);
+  }
+}
+
+/* ---------- three setup ---------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x000000, 0);
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.1, 400);
+const ANISO = renderer.capabilities.getMaxAnisotropy();
+
+function tex(canvas) {
+  const t = new THREE.CanvasTexture(canvas);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO;
+  return t;
+}
+function mat(map) {
+  return new THREE.MeshBasicMaterial({ map, transparent: true, depthTest: false, depthWrite: false });
+}
+
+/* ---------- tweens ---------- */
+const E = {
+  outCubic: t => 1 - Math.pow(1 - t, 3),
+  outExpo: t => t >= 1 ? 1 : 1 - Math.pow(2, -10 * t),
+  inOutCubic: t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+  outBack: t => { const s = 1.5; return 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2); },
+  softBack: t => { const s = 0.9; return 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2); },
+  linear: t => t,
+};
+let tweens = [];
+function to(obj, props, dur, ease = E.outCubic, delay = 0) {
+  return new Promise(res => {
+    props = { ...props };
+    tweens = tweens.filter(o => {
+      if (o.obj !== obj) return true;
+      for (const k in props) delete o.props[k];
+      if (Object.keys(o.props).length) return true;
+      o.res(); return false;
+    });
+    tweens.push({ obj, props, dur, delay, ease, t0: performance.now(), from: null, res });
+  });
+}
+function updateTweens(now) {
+  tweens = tweens.filter(tw => {
+    const e = now - tw.t0 - tw.delay;
+    if (e < 0) return true;
+    if (!tw.from) { tw.from = {}; for (const k in tw.props) tw.from[k] = tw.obj[k]; }
+    const p = Math.min(1, e / tw.dur), k = tw.ease(p);
+    for (const key in tw.props) tw.obj[key] = tw.from[key] + (tw.props[key] - tw.from[key]) * k;
+    if (p >= 1) { tw.res(); return false; }
+    return true;
+  });
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- layout ---------- */
+const GX = 0.42, GY = 0.4;
+let cols = 6, rows = 5;
+function computeGrid() {
+  const a = innerWidth / innerHeight;
+  cols = a >= 1.25 ? 6 : a >= 0.8 ? 5 : 3;
+  rows = Math.ceil(POSTS.length / cols);
+}
+const gridW = () => cols * CARD_W + (cols - 1) * GX;
+const gridH = () => rows * CARD_H + (rows - 1) * GY;
+const portrait = () => innerWidth / innerHeight < 0.9;
+
+function fitDist(w, h) {
+  const vf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const hudSpace = innerWidth < 640 ? 220 : 170;
+  const uh = Math.max(0.45, (innerHeight - hudSpace) / innerHeight);
+  const uw = (innerWidth - 32) / innerWidth;
+  return Math.max((h / 2) / (vf * uh), (w / 2) / (vf * camera.aspect * uw));
+}
+const frame = (x, y, w, h) => ({ x, y, z: fitDist(w, h) });
+
+function colPos(k) {
+  return portrait() ? [0, -(k - 1) * COL_STEP_V] : [(k - 1) * (CARD_W + COL_GAP), 0];
+}
+function viewFrame(v) {
+  if (v.type === 'columns') {
+    return portrait()
+      ? frame(0, COL_CENTER_Y, CARD_W + 0.5, COL_STEP_V * 2 + COL_H)
+      : frame(0, COL_CENTER_Y, 3 * CARD_W + 2 * COL_GAP + 0.5, COL_H);
+  }
+  return frame(0, 0, gridW() + 0.6, gridH() + 0.6);
+}
+
+/* ---------- build scene ---------- */
+const cardGeo = new THREE.PlaneGeometry((CW + CM * 2) * U, (CH + CM * 2) * U);
+const nodeGeo = new THREE.PlaneGeometry((NW + NM * 2) * U, (NH + NM * 2) * U);
+const unitGeo = new THREE.PlaneGeometry(1, 1);
+const PILL_KEYS = ['badge', 'plan', 'tone'];
+let glowTex, cards = [], nodes = [], panels = [], threads = [];
+const badgeCache = new Map();
+function badgeTex(text, color, outline) {
+  const key = text + color + !!outline;
+  if (!badgeCache.has(key)) { const b = drawBadge(text, color, outline); badgeCache.set(key, { t: tex(b.canvas), w: b.w * U, h: b.h * U }); }
+  return badgeCache.get(key);
+}
+
+// scan pulse that rings the active card
+const pulseMat = mat(null); pulseMat.opacity = 0;
+const pulse = new THREE.Mesh(cardGeo, pulseMat); pulse.renderOrder = 19; scene.add(pulse);
+const pulseSt = { s: 1, op: 0, card: null };
+
+function buildCards() {
+  glowTex = tex(drawGlow());
+  pulseMat.map = glowTex; pulseMat.needsUpdate = true;
+  POSTS.forEach((p, i) => {
+    const m = mat(tex(drawCard(p)));
+    const mesh = new THREE.Mesh(cardGeo, m);
+    const glowMat = mat(glowTex); glowMat.opacity = 0;
+    const glow = new THREE.Mesh(cardGeo, glowMat);
+    mesh.add(glow);
+    const pills = PILL_KEYS.map(() => {
+      const pm = mat(null); const pmesh = new THREE.Mesh(unitGeo, pm);
+      mesh.add(pmesh);
+      return { mesh: pmesh, mat: pm, w: 0, h: 0 };
+    });
+    scene.add(mesh);
+    const c = {
+      i, p, mesh, mat: m, glow, glowMat, pills, home: null,
+      st: { x: 0, y: 0, z: 0, s: 1, rz: 0, op: 0, amp: 1, glow: 0, badge: 0, plan: 0, tone: 0, ph: ((i * 0.6180339) % 1) * TAU },
+    };
+    // pills sit in a row above the post: fit, then plan, then tone
+    c.setPill = (k, text, color, outline) => {
+      const b = badgeTex(text, color, outline), pill = pills[k];
+      pill.mat.map = b.t; pill.mat.needsUpdate = true; pill.w = b.w; pill.h = b.h;
+      let x = -CARD_W / 2;
+      for (const pl of pills) {
+        if (!pl.w) continue;
+        pl.mesh.position.set(x + pl.w / 2, CARD_H / 2 + pl.h / 2 + 0.07, 0);
+        x += pl.w + 0.06;
+      }
+    };
+    c.clearPills = () => pills.forEach(pl => { pl.w = 0; });
+    c.pillWorld = k => {
+      const pos = pills[k].mesh.position;
+      return { x: c.st.x + pos.x * c.st.s, y: c.st.y + pos.y * c.st.s };
+    };
+    c.setFront = on => {
+      mesh.renderOrder = on ? 20 : 0; glow.renderOrder = on ? 21 : 0;
+      pills.forEach(pl => { pl.mesh.renderOrder = on ? 22 : 0; });
+    };
+    cards.push(c);
+  });
+}
+
+function layoutHomes() {
+  computeGrid();
+  const half = Math.ceil(POSTS.length / 2);
+  cards.forEach((c, i) => {
+    const slot = i < half ? i * 2 : (i - half) * 2 + 1; // interleave X and Reddit
+    const col = slot % cols, row = Math.floor(slot / cols);
+    const inRow = row === rows - 1 ? POSTS.length - row * cols : cols; // centre a short last row
+    c.home = {
+      x: (col - (inRow - 1) / 2) * (CARD_W + GX),
+      y: ((rows - 1) / 2 - row) * (CARD_H + GY),
+      z: Math.sin(i * 12.9898) * 0.35,
+    };
+  });
+}
+
+function makeLine(order) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  const lineMat = new THREE.LineBasicMaterial({ color: 0x8C9AB5, transparent: true, depthTest: false, opacity: 0 });
+  const line = new THREE.Line(geo, lineMat); line.renderOrder = order; line.frustumCulled = false;
+  scene.add(line);
+  return { line, lineMat };
+}
+function setLine(l, ax, ay, bx, by, p, op) {
+  const a = l.line.geometry.attributes.position.array;
+  a[0] = ax; a[1] = ay; a[2] = 0; a[3] = ax + (bx - ax) * p; a[4] = ay + (by - ay) * p; a[5] = 0;
+  l.line.geometry.attributes.position.needsUpdate = true;
+  l.lineMat.opacity = op;
+}
+
+function addNode(card, [x, y], profile) {
+  const m = mat(tex(drawNode(...profile)));
+  const mesh = new THREE.Mesh(nodeGeo, m); mesh.renderOrder = 21;
+  scene.add(mesh);
+  const n = { card, mesh, mat: m, ...makeLine(15), st: { x, y, z: 0, s: 0, op: 0, lp: 0, lop: 0, ph: Math.random() * TAU } };
+  nodes.push(n);
+  return n;
+}
+
+// a canvas-backed plane that follows its card's hover and redraws whenever st.p changes
+function addPanel(card, w, h, m, draw, x, y) {
+  const [c, g] = makeCanvas(w + m * 2, h + m * 2);
+  const t = tex(c), pm = mat(t);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry((w + m * 2) * U, (h + m * 2) * U), pm);
+  mesh.renderOrder = 20; scene.add(mesh);
+  const pn = {
+    card, mesh, mat: pm, tex: t, drawn: null, st: { x, y, z: 0, s: 1, op: 0, p: 0 },
+    redraw() {
+      g.setTransform(TS, 0, 0, TS, 0, 0); g.clearRect(0, 0, w + m * 2, h + m * 2); g.translate(m, m);
+      draw(g, pn.st.p); t.needsUpdate = true; pn.drawn = pn.st.p;
+    },
+  };
+  pn.redraw();
+  panels.push(pn);
+  return pn;
+}
+
+function clearExtras() {
+  for (const n of nodes) {
+    scene.remove(n.mesh, n.line);
+    n.mat.map.dispose(); n.mat.dispose(); n.line.geometry.dispose(); n.lineMat.dispose();
+  }
+  for (const pn of panels) { scene.remove(pn.mesh); pn.tex.dispose(); pn.mat.dispose(); pn.mesh.geometry.dispose(); }
+  for (const th of threads) { scene.remove(th.line); th.line.geometry.dispose(); th.lineMat.dispose(); }
+  nodes = []; panels = []; threads = [];
+}
+
+/* ---------- render loop ---------- */
+const cam = { x: 0, y: 0, z: 30 };
+let view = { type: 'overview' };
+let L = 0;
+const bob = c => Math.sin(L + c.st.ph) * 0.11 * c.st.amp * HOVER;
+
+function tick(now) {
+  updateTweens(now);
+  L = (now % PERIOD) / PERIOD * TAU;
+
+  for (const c of cards) {
+    const s = c.st, a = s.amp * HOVER;
+    c.mesh.visible = s.op > 0.002;
+    c.mesh.position.set(s.x, s.y + bob(c), s.z);
+    c.mesh.rotation.set(Math.sin(L + s.ph + 1.3) * 0.05 * a, Math.cos(L + s.ph * 1.7) * 0.065 * a, s.rz + Math.sin(L + s.ph + 2.1) * 0.012 * a);
+    c.mesh.scale.setScalar(s.s);
+    c.mat.opacity = s.op;
+    c.glowMat.opacity = s.glow * s.op;
+    c.glow.visible = s.glow > 0.002;
+    c.pills.forEach((pl, k) => {
+      const v = s[PILL_KEYS[k]];
+      pl.mesh.visible = v > 0.002 && pl.w > 0;
+      pl.mesh.scale.set(pl.w * Math.max(v, 0.001), pl.h * Math.max(v, 0.001), 1);
+      pl.mat.opacity = Math.min(1, v) * s.op;
+    });
+  }
+
+  for (const n of nodes) {
+    const s = n.st, cp = n.card.mesh.position;
+    n.mesh.visible = s.s > 0.002 && s.op > 0.002;
+    n.mesh.position.set(s.x, s.y + Math.sin(L + s.ph) * 0.05 * HOVER, s.z);
+    n.mesh.scale.setScalar(Math.max(s.s, 0.001));
+    n.mat.opacity = s.op;
+    setLine(n, cp.x, cp.y, n.mesh.position.x, n.mesh.position.y, s.lp, s.lop);
+  }
+
+  for (const pn of panels) {
+    const s = pn.st;
+    pn.mesh.visible = s.op > 0.002;
+    pn.mesh.position.set(s.x, s.y + bob(pn.card), s.z);
+    pn.mesh.scale.setScalar(Math.max(s.s, 0.001));
+    pn.mat.opacity = s.op;
+    if (pn.drawn !== s.p) pn.redraw();
+  }
+
+  // reply threads: vertical line from the post's avatar down to our avatar
+  for (const th of threads) {
+    const cp = th.card.mesh.position, rp = th.reply.mesh.position;
+    setLine(th, cp.x + th.ax, cp.y + th.ay, cp.x + th.ax, rp.y + th.ry, th.st.lp, th.st.op);
+  }
+
+  if (pulseSt.card) {
+    pulse.position.copy(pulseSt.card.mesh.position);
+    pulse.rotation.copy(pulseSt.card.mesh.rotation);
+    pulse.scale.setScalar(pulseSt.card.st.s * pulseSt.s);
+  }
+  pulse.visible = pulseSt.op > 0.002;
+  pulseMat.opacity = pulseSt.op;
+
+  camera.position.set(cam.x, cam.y, cam.z);
+  camera.lookAt(cam.x, cam.y, 0);
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+
+/* ---------- UI ---------- */
+const $ = id => document.getElementById(id);
+const dock = $('dock'), statusEl = $('status'), nextBtn = $('next'), nextLabel = $('nextLabel');
+const state = { step: 0, busy: false };
+let runId = 0;
+const LAST = 6;
+const NEXT_LABEL = ['Highlight best fits', 'Highlight best fits', 'Estimate their plan', 'Pick a reply tone', 'Write the replies', 'Open the link'];
+
+function status(t) { statusEl.textContent = t; }
+function setBusy(b) {
+  state.busy = b; dock.classList.toggle('busy', b);
+  if (state.step >= LAST) {
+    nextBtn.disabled = b || page.open;
+    nextLabel.textContent = page.open ? 'Done' : 'Reopen the page';
+  } else {
+    nextBtn.disabled = b;
+    nextLabel.textContent = NEXT_LABEL[state.step];
+  }
+}
+function setStep(n) {
+  for (let i = 1; i <= LAST; i++) {
+    $('s' + i).classList.toggle('on', i === n);
+    $('s' + i).classList.toggle('done', i < n);
+  }
+}
+const picks = () => PICKS.map(p => cards[p.idx]);
+const per = [];   // per-pick panels for steps 3–6
+
+/* ---------- step 6: tailored page ---------- */
+const browser = $('browser'), scrim = $('scrim'), pageEl = $('page'), urlEl = $('url'), tabsEl = $('tabs');
+const page = { open: false, i: 0 };
+const esc = s => s.replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+const img = (id, size) => !id ? `<span style="display:inline-block;border-radius:50%;flex:none;width:${size}px;height:${size}px;background:var(--accent-soft)"></span>` : `<span style="display:inline-block;overflow:hidden;border-radius:50%;flex:none;width:${size}px;height:${size}px"><img src="${photoSrc(id)}" alt="" style="display:block;width:100%;height:100%;object-fit:cover;${photoStyle(id)}"></span>`;
+
+tabsEl.innerHTML = PICKS.map((P, i) =>
+  `<button type="button" data-i="${i}" aria-pressed="false">${P.photo ? `<img src="${photoSrc(P.photo)}" alt="" style="${photoStyle(P.photo)}">` : ''}<span>${esc(P.name.split(' ')[0])}</span></button>`).join('');
+tabsEl.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  showPage(+b.dataset.i);
+});
+
+function pageHTML(P) {
+  const post = POSTS[P.idx], pg = P.page, plan = PLANS[P.plan.pick];
+  const who = post.kind === 'x'
+    ? `${img(P.photo, 40)}<div><b>${esc(post.name)}</b><span>@${esc(post.handle)}</span></div><span class="src">on X</span>`
+    : `${img(P.photo, 40)}<div><b>${esc(P.name)}</b><span>u/${esc(post.user)} in r/${esc(post.sub)}</span></div><span class="src">on Reddit</span>`;
+  const said = post.kind === 'x' ? post.text : `${post.title}. ${post.text}`;
+  return `
+  <div class="lp-nav">
+    <div class="logo"><img src="${BRAND.lockup}" alt="${esc(BRAND.name)}"></div>
+    <div class="made">${img(P.photo, 26)}<span>Made for <b>${esc(P.name.split(' ')[0])}</b> at ${esc(pg.company)}</span></div>
+  </div>
+  <section class="hero">
+    <div>
+      <div class="eyebrow">${esc(pg.eyebrow)}</div>
+      <h1>${esc(pg.h1)}</h1>
+      <p class="sub">${esc(pg.sub)}</p>
+      <div class="ctas"><span class="btn p">${esc(pg.cta)}</span><span class="btn">${esc(pg.cta2)}</span></div>
+    </div>
+    <div class="said">
+      <div class="who">${who}</div>
+      <p>“${esc(said)}”</p>
+      <div class="delta">
+        <div class="before"><b>${esc(pg.delta[0][0])}</b><span>${esc(pg.delta[0][1])}</span></div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg>
+        <div class="after"><b>${esc(pg.delta[1][0])}</b><span>${esc(pg.delta[1][1])}</span></div>
+      </div>
+    </div>
+  </section>
+  <section class="how">
+    <h2>How it fixes this for ${esc(pg.company)}</h2>
+    <div class="how-grid">${pg.steps.map(([t, d], k) => `<div><em>Step ${k + 1}</em><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join('')}</div>
+  </section>
+  <section class="offer">
+    <h2>Your offer</h2>
+    <div class="offer-grid">
+      <div class="plan">
+        <span class="tag">PICKED FOR YOU</span>
+        <h3>${esc(plan.name)} plan</h3>
+        <div class="price"><b>$${plan.price}</b><span>${esc(pg.cadence)}</span></div>
+        <div class="deal">${esc(pg.deal)}</div>
+        <ul>${pg.includes.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+        <span class="btn p">${esc(pg.cta)}</span>
+      </div>
+      <div class="why">
+        <h3>Why ${esc(plan.name)} and not another plan</h3>
+        <p>${esc(pg.why)}</p>
+        <div class="chips">${pg.chips.map(x => `<span>${esc(x)}</span>`).join('')}</div>
+      </div>
+    </div>
+  </section>
+  <footer class="lp-foot"><span>This page was made for ${esc(P.name)}. Offer valid until ${OFFER_ENDS}.</span><span>${esc(BRAND.name)} · ${esc(P.link.url)}</span></footer>`;
+}
+
+function renderPage(i) {
+  const P = PICKS[i];
+  page.i = i;
+  pageEl.innerHTML = `<div class="lp">${pageHTML(P)}</div>`;
+  pageEl.scrollTop = 0;
+  const [host, ...rest] = P.link.url.split('/');
+  urlEl.innerHTML = `<b>${esc(host)}</b>/${esc(rest.join('/'))}`;
+  tabsEl.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.i === i)));
+}
+function revealPage(delay) {
+  const lp = pageEl.firstElementChild;
+  setTimeout(() => lp && lp.classList.add('go'), delay);
+}
+function pageStatus(i) {
+  const P = PICKS[i];
+  status(`${P.name}'s page · ${PLANS[P.plan.pick].name} plan, ${P.link.desc.split(' · ')[1]}`);
+}
+
+// screen rect of the link preview inside a reply panel
+function linkRect(i) {
+  const pn = per[i] && per[i].reply, P = PICKS[i];
+  if (!pn) return null;
+  const cx = pn.mesh.position.x, top = (RH / 2 - P._linkTop) * U + pn.mesh.position.y;
+  const half = (RW - 40) / 2 * U;
+  const a = new THREE.Vector3(cx - half, top, 0).project(camera);
+  const b = new THREE.Vector3(cx + half, top - 90 * U, 0).project(camera);
+  const sx = v => (v.x + 1) / 2 * innerWidth, sy = v => (1 - v.y) / 2 * innerHeight;
+  return { left: sx(a), top: sy(a), width: sx(b) - sx(a), height: sy(b) - sy(a) };
+}
+function flipFrom(r) {
+  const f = browser.getBoundingClientRect();
+  browser.style.transition = 'none';
+  browser.style.transform = `translate(${r.left - f.left}px, ${r.top - f.top}px) scale(${r.width / f.width}, ${r.height / f.height})`;
+  browser.style.opacity = '0.5';
+}
+async function openPage(i) {
+  renderPage(i);
+  page.open = true;
+  browser.hidden = false; scrim.hidden = false;
+  const r = linkRect(i);
+  if (r && !reduced) flipFrom(r);
+  scrim.style.opacity = '0';
+  browser.offsetWidth; // commit the start frame
+  browser.style.transition = 'transform .62s cubic-bezier(.2,.85,.25,1), opacity .25s ease';
+  browser.style.transform = 'none'; browser.style.opacity = '1';
+  scrim.style.opacity = '1';
+  revealPage(reduced ? 0 : 330);
+  pageStatus(i);
+  await sleep(650);
+}
+async function closePage() {
+  if (!page.open) return;
+  page.open = false;
+  const lp = pageEl.firstElementChild; if (lp) lp.classList.remove('go');
+  const r = linkRect(page.i), f = browser.getBoundingClientRect();
+  browser.style.transition = 'transform .45s cubic-bezier(.5,0,.75,0), opacity .3s ease .15s';
+  if (r && !reduced) browser.style.transform = `translate(${r.left - f.left}px, ${r.top - f.top}px) scale(${r.width / f.width}, ${r.height / f.height})`;
+  browser.style.opacity = '0';
+  scrim.style.opacity = '0';
+  status('3 replies posted, each linking to its own page');
+  setBusy(state.busy);
+  await sleep(460);
+  if (!page.open) { browser.hidden = true; scrim.hidden = true; }
+}
+function showPage(i) {
+  if (i === page.i && page.open) return;
+  renderPage(i);
+  revealPage(20);
+  pageStatus(i);
+}
+function hidePageNow() {
+  page.open = false;
+  browser.hidden = true; scrim.hidden = true;
+  browser.style.transition = 'none'; browser.style.transform = 'none';
+}
+$('close').addEventListener('click', closePage);
+scrim.addEventListener('click', closePage);
+
+/* ---------- steps ---------- */
+async function step1(id) {
+  setStep(1); setBusy(true); status(`Scanning ${COPY.sources}…`);
+  let found = 0;
+  const order = cards.map((_, i) => i).sort(() => Math.random() - 0.5);
+  await Promise.all(order.map((i, k) => {
+    const c = cards[i], s = c.st, h = c.home;
+    Object.assign(s, {
+      x: h.x * 1.6 + (Math.random() - 0.5) * 6, y: h.y - 16 - Math.random() * 6, z: -10,
+      rz: (Math.random() - 0.5) * 1.4, s: 0.8, op: 0, amp: 1, glow: 0, badge: 0, plan: 0, tone: 0,
+    });
+    const d = 120 + k * 32;
+    to(s, { op: 1 }, 380, E.outCubic, d);
+    return to(s, { x: h.x, y: h.y, z: h.z, rz: 0, s: 1 }, 1000, E.outExpo, d)
+      .then(() => { if (id === runId) status(`Scanning ${COPY.sources}… ${++found} mentions`); });
+  }));
+  if (id !== runId) return;
+  state.step = 1;
+  status(`${POSTS.length} mentions of problems we can solve`);
+  setBusy(false);
+}
+
+async function step2(id) {
+  setStep(2); setBusy(true); status('Scoring intent and fit…');
+  const pk = picks();
+  const others = cards.filter(c => !pk.includes(c));
+
+  // pull the picks toward the camera in a row (column when portrait)
+  const D = cam.z, vf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const gap = 0.6, port = portrait();
+  const rowW = port ? CARD_W : 3 * CARD_W + 2 * gap;
+  const rowH = port ? 3 * CARD_H + 2 * (gap + 0.3) : CARD_H + 0.4;
+  const z2 = Math.max(-2, Math.min(D - 4, D - Math.max(rowW / (2 * 0.8 * vf * camera.aspect), rowH / (2 * 0.68 * vf))));
+
+  others.forEach((c, k) => to(c.st, { op: 0.32, z: c.home.z - 1.5, s: 0.96 }, 650, E.outCubic, (k % 10) * 12));
+  await sleep(160); if (id !== runId) return;
+  pk.forEach((c, k) => {
+    c.setFront(true);
+    c.setPill(0, PICKS[k].fit, ACCENT);
+    const off = k - 1;
+    const x = port ? 0 : off * (CARD_W + gap);
+    const y = port ? -off * (CARD_H + gap + 0.3) : -0.1;
+    const d = k * 110;
+    to(c.st, { x, y, z: z2, rz: 0, s: 1, amp: 0.45 }, 850, E.softBack, d);
+    to(c.st, { glow: 1 }, 420, E.outCubic, d + 380);
+    to(c.st, { badge: 1 }, 480, E.outBack, d + 480);
+  });
+  await sleep(1150); if (id !== runId) return;
+  state.step = 2;
+  status('3 best fits: high intent, clear problem');
+  setBusy(false);
+}
+
+// Step 3: quick profile crawl per person, which feeds the plan estimate
+async function step3(id) {
+  setStep(3); setBusy(true); status('Linking profiles…');
+  const pk = picks();
+  cards.filter(c => !pk.includes(c)).forEach(c => to(c.st, { op: 0.1, z: c.home.z - 6 }, 700, E.outCubic));
+  pk.forEach((c, k) => {
+    const [x, y] = colPos(k);
+    c.setPill(0, PICKS[k].fitShort, ACCENT);
+    to(c.st, { x, y: y + Y_CARD, z: 0, s: 1, amp: 0.25, glow: 0.45 }, 750, E.inOutCubic, k * 50);
+  });
+  view = { type: 'columns' };
+  await to(cam, viewFrame(view), 750, E.inOutCubic);
+  if (id !== runId) return;
+
+  const planned = [];
+  for (let i = 0; i < PICKS.length; i++) {
+    const P = PICKS[i], card = pk[i], [cx, cy] = colPos(i);
+    per[i] = {};
+    status(`${P.name} · finding other profiles…`);
+    pulseSt.card = card; pulseSt.s = 1; pulseSt.op = 0.8;
+    to(pulseSt, { s: 1.15, op: 0 }, 420, E.outCubic);
+
+    const ns = P.profiles.map((prof, j) => {
+      const n = addNode(card, [cx + (j % 2 ? NODE_X : -NODE_X), cy + NODE_Y[j >> 1]], prof);
+      const d = j * 65;
+      to(n.st, { lp: 1, lop: 0.85 }, 140, E.outCubic, d);
+      to(n.st, { s: NODE_S }, 260, E.outBack, d + 70);
+      to(n.st, { op: 1 }, 140, E.outCubic, d + 70);
+      return n;
+    });
+    await sleep(5 * 65 + 70 + 300); if (id !== runId) return;
+
+    // collapse the found profiles into a strip of icons under the post
+    const strip = addPanel(card, CW, 30, 0, g => drawStrip(g, P), cx, cy + STRIP_Y);
+    strip.mesh.renderOrder = 22; per[i].strip = strip;
+    ns.forEach((n, j) => to(n.st, {
+      x: cx - CARD_W / 2 + (11 + j * 27) * U, y: cy + STRIP_Y, s: 0.1, op: 0, lop: 0,
+    }, 300, E.inOutCubic, j * 20));
+    to(strip.st, { op: 1 }, 220, E.outCubic, 200);
+    status(`${P.name} · ${P.profiles.length} profiles linked, estimating plan…`);
+    await sleep(260); if (id !== runId) return;
+
+    const plan = addPanel(card, PW, PH, PM, (g, p) => drawPlan(g, P, p), cx, cy + PANEL_Y);
+    per[i].plan = plan; plan.st.s = 0.92;
+    to(plan.st, { s: 1, op: 1 }, 280, E.outCubic);
+    planned.push(to(plan.st, { p: 1 }, 950, E.outCubic, 120));
+    await sleep(200); if (id !== runId) return;
+  }
+  await Promise.all(planned); if (id !== runId) return;
+  state.step = 3;
+  status(`Best plan: ${PICKS.map(P => PLANS[P.plan.pick].name).join(' · ')}`);
+  setBusy(false);
+}
+
+// fold a panel into a pill above the post
+function foldIntoPill(card, pn, k, text, color, delay, outline) {
+  card.setPill(k, text, color, outline);
+  const tgt = card.pillWorld(k);
+  to(pn.st, { x: tgt.x, y: tgt.y, s: 0.12, op: 0 }, 360, E.inOutCubic, delay);
+  card.st[PILL_KEYS[k]] = 0;
+  to(card.st, { [PILL_KEYS[k]]: 1 }, 420, E.outBack, delay + 220);
+}
+
+async function step4(id) {
+  setStep(4); setBusy(true); status('Reading how each person writes…');
+  const pk = picks(), done = [];
+  PICKS.forEach((P, i) => {
+    const card = pk[i], [cx, cy] = colPos(i), d = i * 220;
+    foldIntoPill(card, per[i].plan, 1, `${PLANS[P.plan.pick].name} · $${PLANS[P.plan.pick].price}/mo`, BLACK, d);
+    const tone = addPanel(card, PW, PH, PM, (g, p) => drawTone(g, P, p), cx, cy + PANEL_Y - 0.3);
+    per[i].tone = tone; tone.st.s = 0.94;
+    to(tone.st, { y: cy + PANEL_Y, s: 1, op: 1 }, 340, E.outCubic, d + 200);
+    done.push(to(tone.st, { p: 1 }, 950, E.outCubic, d + 320));
+  });
+  await Promise.all(done); if (id !== runId) return;
+  state.step = 4;
+  status(`Tone: ${PICKS.map(P => TONES[P.tone.pick]).join(' · ')}`);
+  setBusy(false);
+}
+
+async function step5(id) {
+  setStep(5); setBusy(true);
+  const pk = picks(), done = [];
+  for (let i = 0; i < PICKS.length; i++) {
+    const P = PICKS[i], card = pk[i], [cx, cy] = colPos(i);
+    const tone = TONES[P.tone.pick].toLowerCase();
+    status(`Writing ${/^[aeiou]/.test(tone) ? 'an' : 'a'} ${tone} reply to ${P.name}…`);
+    foldIntoPill(card, per[i].tone, 2, `Tone · ${TONES[P.tone.pick]}`, ACCENT, 0, true);
+    to(per[i].strip.st, { op: 0 }, 220);
+
+    const reply = addPanel(card, RW, RH, PM, (g, p) => drawReply(g, P, p), cx, cy + REPLY_Y - 0.5);
+    per[i].reply = reply;
+    to(reply.st, { y: cy + REPLY_Y, op: 1 }, 420, E.outCubic, 180);
+
+    const isX = POSTS[P.idx].kind === 'x';
+    const th = {
+      card, reply, ...makeLine(14), st: { lp: 0, op: 0.9 },
+      ax: ((isX ? 42 : 36) - CW / 2) * U, ay: (CH / 2 - (isX ? 42 : 36)) * U,
+      ry: (RH / 2 - (isX ? 36 : 34)) * U,
+    };
+    th.lineMat.color.set(0xC3CBD9);
+    threads.push(th);
+    to(th.st, { lp: 1 }, 300, E.outCubic, 300);
+
+    const typing = (P.reply.length + P.link.url.length) * 7;
+    done.push(to(reply.st, { p: 1 }, typing, E.linear, 450).then(() => to(reply.st, { p: 1.25 }, 380, E.outCubic)));
+    await sleep(650); if (id !== runId) return;
+  }
+  await Promise.all(done); if (id !== runId) return;
+  state.step = 5;
+  status('3 replies drafted, each with its own link');
+  setBusy(false);
+}
+
+// Step 6: "click" the link in the first reply and open its tailored page
+async function step6(id) {
+  setStep(6); setBusy(true);
+  const P = PICKS[0], reply = per[0].reply;
+  status(`Opening the link in ${P.name.split(' ')[0]}'s reply…`);
+  await to(reply.st, { s: 0.965 }, 120, E.outCubic); if (id !== runId) return;
+  to(reply.st, { s: 1 }, 300, E.outBack);
+  await openPage(0); if (id !== runId) return;
+  state.step = 6;
+  setBusy(false);
+}
+
+const STEPS = [null, null, step2, step3, step4, step5, step6];
+async function next() {
+  if (state.busy) return;
+  if (state.step >= LAST) {
+    if (!page.open) { setBusy(true); await openPage(page.i); setBusy(false); }
+    return;
+  }
+  STEPS[state.step + 1](runId);
+}
+
+function reset() {
+  const id = ++runId;
+  hidePageNow();
+  tweens.forEach(t => t.res()); tweens = [];
+  clearExtras();
+  pulseSt.op = 0; pulseSt.card = null;
+  layoutHomes();
+  cards.forEach(c => { c.setFront(false); c.clearPills(); c.st.op = 0; });
+  state.step = 0;
+  view = { type: 'overview' };
+  Object.assign(cam, viewFrame(view));
+  step1(id);
+}
+
+nextBtn.addEventListener('click', next);
+$('reset').addEventListener('click', reset);
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('button') && (e.key === 'Enter' || e.key === ' ')) return;
+  if (e.key === 'Escape') { closePage(); return; }
+  if (page.open) return;
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+  if (e.key === 'r' || e.key === 'R') reset();
+});
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  if (state.step === 1 && !state.busy) {
+    layoutHomes();
+    cards.forEach(c => to(c.st, { x: c.home.x, y: c.home.y, z: c.home.z }, 500, E.outCubic));
+  }
+  if (!tweens.some(t => t.obj === cam)) Object.assign(cam, viewFrame(view));
+});
+
+/* ---------- boot ---------- */
+(async () => {
+  const problem = configError();
+  if (problem) { status('Config: ' + problem); console.error('Mention Scout config:', problem); return; }
+  try {
+    await Promise.race([
+      Promise.all(['400', '500', '600', '700'].map(w => document.fonts.load(`${w} 16px "${THEME.font}"`))
+        .concat(loadPhotos(), loadBrand())),
+      sleep(3000),
+    ]);
+  } catch {}
+  buildCards();
+  requestAnimationFrame(tick);
+  reset();
+})();
+</script>

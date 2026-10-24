@@ -31,6 +31,8 @@ Use red as the brand accent. Keep layouts minimal, clear, and high contrast.
 
 Both files contain the complete Needora symbol and wordmark. No standalone symbol export is included. Preserve the logo proportions and colors; use the SVG directly when possible.
 
+The same folder also holds the files the Mention Scout page uses: `needora-lockup-*` (symbol and wordmark) and `needora-mark-*` (symbol only), each in black and white, with `-crop` versions trimmed tight to the artwork. Point `config/brand.js` at whichever you need.
+
 ## SVG details
 
 The two logotypes are transparent, square `2188 × 2188` SVGs made from vector paths. They contain no embedded images, live text, external references, or font dependency. The letters are outlined, so the Rubik download is only needed for new text outside the logo.

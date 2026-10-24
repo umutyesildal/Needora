@@ -1,46 +1,36 @@
 # Needora brand guide
 
-A compact reference for agents creating product UI, demos, and marketing assets.
+A compact reference for agents creating Needora product and marketing materials.
 
-## Product
-Needora is a startup customer-discovery concept: help teams find people already expressing a need their product may solve, using relevant public conversations.
+## Brand
 
-**Draft message:** Find the people who need what you build.
+Needora helps startups find people already expressing a need their product may solve.
 
-## Brand colors
+**Core message:** Find the people who need what you build.
+
+## Colors
 
 - **Needora red:** `#7C1010`
 - **Black:** `#000000`
 - **White:** `#FFFFFF`
 
-Use red as the main brand accent. Use white text on red and black on white for clear contrast.
+Use red as the brand accent. Keep layouts minimal, clear, and high contrast.
 
 ## Typography
 
 - **Typeface:** Rubik variable, weights 300–900.
-- **Font download:** [Rubik-font-download.zip](assets/brand/fonts/Rubik-font-download.zip). The archive contains the TTF font and its SIL Open Font License.
-- Use Rubik for product and campaign text. The logo wordmark is already outlined in the SVG; do not retype or replace it with Rubik.
+- **Font file:** [Rubik-font-download.zip](assets/brand/fonts/Rubik-font-download.zip), containing the TTF font and SIL Open Font License.
+- The logotype is outlined vector artwork; do not retype or substitute its lettering.
 
-## Logo assets
-
-Use the mark alone for compact placements such as an avatar or app icon. Use the horizontal lockup when the Needora name must appear.
+## Logotypes
 
 | Asset | Use |
 |---|---|
-| [needora-mark-black.svg](assets/brand/logos/needora-mark-black.svg) | Mark on white or other light backgrounds |
-| [needora-mark-white.svg](assets/brand/logos/needora-mark-white.svg) | Mark on red, black, or other dark backgrounds |
-| [needora-lockup-black.svg](assets/brand/logos/needora-lockup-black.svg) | Mark plus Needora wordmark on light backgrounds |
-| [needora-lockup-white.svg](assets/brand/logos/needora-lockup-white.svg) | Mark plus Needora wordmark on red, black, or other dark backgrounds |
-| [needora-lockup-white-alt.svg](assets/brand/logos/needora-lockup-white-alt.svg) | Alternate white lockup export; retained because its final path differs slightly |
+| [needora-logotype-black.svg](assets/brand/logos/needora-logotype-black.svg) | On white or light backgrounds |
+| [needora-logotype-white.svg](assets/brand/logos/needora-logotype-white.svg) | On Needora red, black, or other dark backgrounds |
 
-![Needora black lockup](assets/brand/logos/needora-lockup-black.svg)
+Both files contain the complete Needora symbol and wordmark. No standalone symbol export is included. Preserve the logo proportions and colors; use the SVG directly when possible.
 
-## SVG notes for agents
+## SVG details
 
-- The five supplied files are valid standalone SVGs with a `2188 × 2188` viewBox, transparent background, and vector paths only. They contain no embedded images, live text, external references, or font dependency.
-- The wordmark letters are outlined paths. Rubik is only needed for new text outside the logo.
-- Logo fills are fixed to black or white in the files. Preserve the originals. A red logo export is not included yet.
-- The horizontal lockups sit inside a square viewBox, leaving extra space above and below. For a tight header or banner, create a cropped derivative with a tighter viewBox and keep the source file unchanged.
-- White variants need a dark or red surface to remain visible. Do not preview them on white.
-
-The earlier PNG exports use a different mark and are not included as current Needora assets. Use these SVGs as the current logo source; add matching PNG exports when available.
+The two logotypes are transparent, square `2188 × 2188` SVGs made from vector paths. They contain no embedded images, live text, external references, or font dependency. The letters are outlined, so the Rubik download is only needed for new text outside the logo.
